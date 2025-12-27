@@ -28,7 +28,7 @@ public class WebAuthnController(
     /// <response code="400">Bad request</response>
     /// <response code="401">User not authenticated</response>
     [HttpPost("register/start")]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(WebAuthnRegistrationOptions), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> StartRegistration([FromBody] StartRegistrationDto request) =>
@@ -43,7 +43,7 @@ public class WebAuthnController(
     /// <response code="400">Bad request or registration failed</response>
     /// <response code="401">User not authenticated</response>
     [HttpPost("register/complete")]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(WebAuthnRegistrationResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> CompleteRegistration([FromBody] CompleteRegistrationDto request)
@@ -61,7 +61,7 @@ public class WebAuthnController(
     /// <response code="400">No credentials found</response>
     /// <response code="401">User not authenticated</response>
     [HttpPost("authenticate/start")]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(WebAuthnAuthenticationOptions), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> StartAuthentication() =>
@@ -76,7 +76,7 @@ public class WebAuthnController(
     /// <response code="400">Bad request or authentication failed</response>
     /// <response code="401">User not authenticated</response>
     [HttpPost("authenticate/complete")]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(WebAuthnAuthenticationResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> CompleteAuthentication([FromBody] CompleteAuthenticationDto request) =>

@@ -176,10 +176,14 @@ public class AuthService(
         if (requiresMfa)
         {
             // Create MFA challenge instead of completing login
-            var mfaChallenge = await mfaAuthenticationService.CreateChallengeAsync(
+            var mfaChallengeResponse = await mfaAuthenticationService.CreateChallengeAsync(
                 user.Id,
-                ipAddress,
-                null); // userAgent would come from request headers in controller
+                ipAddress); // userAgent would come from request headers in controller
+
+            if (!mfaChallengeResponse.Success)
+            {
+                return ServiceResponseFactory.Error<JwtResponseDto>(mfaChallengeResponse.Message);
+            }
 
             logger.Info(new StructuredLogBuilder()
                 .SetAction(AuthActions.Login)
@@ -191,7 +195,7 @@ public class AuthService(
             return ServiceResponseFactory.Success(new JwtResponseDto
             {
                 RequiresMfa = true,
-                MfaChallenge = mfaChallenge,
+                MfaChallenge = mfaChallengeResponse.Data,
                 ForceReset = user.ForceResetPassword
             });
         }
@@ -380,7 +384,7 @@ public class AuthService(
         {
             logger.Info(new StructuredLogBuilder()
                 .SetType(LogTypes.Security.Alert)
-                .SetAction(AuthActions.RequestPasswordReset)
+                .SetAction(AuthActions.RequestCredentialReset)
                 .SetStatus(LogStatuses.Failure)
                 .SetTarget(AuthTargets.User(email))
                 .SetEntity(nameof(Domain.Entities.Identity.AppUser))
@@ -408,7 +412,7 @@ public class AuthService(
         });
 
         logger.Info(new StructuredLogBuilder()
-            .SetAction(AuthActions.RequestPasswordReset)
+            .SetAction(AuthActions.RequestCredentialReset)
             .SetStatus(LogStatuses.Success)
             .SetTarget(AuthTargets.User(email))
             .SetEntity(nameof(Domain.Entities.Identity.AppUser))
@@ -466,9 +470,9 @@ public class AuthService(
     public async Task<ServiceResponse<JwtResponseDto>> CompleteMfaAuthentication(CompleteMfaDto completeMfaDto, string ipAddress) => await RunWithCommitAsync(async () =>
     {
         // Verify the MFA challenge
-        var verificationResult = await mfaAuthenticationService.VerifyMfaAsync(completeMfaDto);
+        var verificationResponse = await mfaAuthenticationService.VerifyMfaAsync(completeMfaDto);
 
-        if (!verificationResult.IsValid)
+        if (!verificationResponse.Success)
         {
             // Log the failed MFA attempt
             logger.Warning(new StructuredLogBuilder()
@@ -476,9 +480,9 @@ public class AuthService(
                 .SetStatus(LogStatuses.Failure)
                 .SetTarget(AuthTargets.User("MFA"))
                 .SetEntity("MfaChallenge")
-                .SetDetail($"MFA verification failed: {verificationResult.ErrorMessage}"));
+                .SetDetail($"MFA verification failed: {verificationResponse.Message}"));
 
-            if (verificationResult.IsExhausted)
+            if (verificationResponse.Data?.IsExhausted == true)
             {
                 logger.Critical(new StructuredLogBuilder()
                     .SetAction(AuthActions.Login)
@@ -489,17 +493,18 @@ public class AuthService(
             }
 
             return ServiceResponseFactory.Error<JwtResponseDto>(
-                verificationResult.ErrorMessage ?? "Invalid MFA verification code");
+                verificationResponse.Message ?? "Invalid MFA verification code");
         }
 
         // Get the user
-        var user = await appUserRepository.GetUserByIdAsync(verificationResult.UserId);
+        var userId = verificationResponse.Data!.UserId;
+        var user = await appUserRepository.GetUserByIdAsync(userId);
         if (user == null)
         {
             logger.Critical(new StructuredLogBuilder()
                 .SetAction(AuthActions.Login)
                 .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(verificationResult.UserId.ToString()))
+                .SetTarget(AuthTargets.User(userId.ToString()))
                 .SetEntity(nameof(AppUser))
                 .SetDetail("User not found after successful MFA verification"));
 
@@ -515,7 +520,7 @@ public class AuthService(
             .SetStatus(LogStatuses.Success)
             .SetTarget(AuthTargets.User(user.Username))
             .SetEntity(nameof(AppUser))
-            .SetDetail($"MFA authentication completed successfully. Recovery code used: {verificationResult.UsedRecoveryCode}"));
+            .SetDetail($"MFA authentication completed successfully. Recovery code used: {verificationResponse.Data.UsedRecoveryCode}"));
 
         return loginResult;
     });

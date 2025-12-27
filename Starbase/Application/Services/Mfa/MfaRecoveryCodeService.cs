@@ -34,7 +34,7 @@ public class MfaRecoveryCodeService(IPasswordHasher passwordHasher)
     /// <returns>True if the code is valid and successfully marked as used</returns>
     public bool ValidateAndUseRecoveryCode(MfaRecoveryCode recoveryCode, string inputCode)
     {
-        if (recoveryCode == null || string.IsNullOrWhiteSpace(inputCode))
+        if (recoveryCode is null || string.IsNullOrWhiteSpace(inputCode))
             return false;
 
         if (recoveryCode.IsUsed)
@@ -62,12 +62,12 @@ public class MfaRecoveryCodeService(IPasswordHasher passwordHasher)
     /// <returns>Collection of recovery codes with secure hashes</returns>
     public IEnumerable<MfaRecoveryCode> GenerateRecoveryCodes(Guid mfaMethodId, int count = 10)
     {
-        if (count <= 0 || count > 20)
+        if (count is <= 0 or > 20)
             throw new ArgumentException("Recovery code count must be between 1 and 20", nameof(count));
 
         var codes = new List<MfaRecoveryCode>(count);
 
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
             codes.Add(GenerateRecoveryCode(mfaMethodId));
         }

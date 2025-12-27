@@ -11,7 +11,6 @@ using Application.Interfaces.Security;
 using Application.Interfaces.Services;
 using Application.Models;
 using Domain.Entities.Security;
-using Domain.Exceptions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -53,7 +52,7 @@ public class MfaConfigurationService(
             return ServiceResponseFactory.Error<MfaSetupDto>("TOTP is already configured for this user");
 
         // Remove any existing unverified TOTP setup
-        if (existingTotp != null && !existingTotp.IsEnabled)
+        if (existingTotp is { IsEnabled: false })
         {
             mfaMethodRepository.Remove(existingTotp);
         }
@@ -170,7 +169,7 @@ public class MfaConfigurationService(
             return ServiceResponseFactory.Error<EmailSetupDto>("Email MFA is already configured for this user");
 
         // Remove any existing unverified Email setup
-        if (existingEmail != null && !existingEmail.IsEnabled)
+        if (existingEmail is { IsEnabled: false })
         {
             mfaMethodRepository.Remove(existingEmail);
         }
@@ -358,7 +357,7 @@ public class MfaConfigurationService(
     {
         var method = await mfaMethodRepository.GetByIdAsync(methodId, cancellationToken);
         if (method == null || method.UserId != userId)
-            return ServiceResponseFactory.Success<MfaMethodDto?>(null);
+            return ServiceResponseFactory.Success<MfaMethodDto?>(string.Empty);
 
         return ServiceResponseFactory.Success<MfaMethodDto?>(MapToDto(method));
     }
@@ -453,7 +452,7 @@ public class MfaConfigurationService(
         var result = await UpdateMfaMethodAsync(userId, methodId, updateDto, cancellationToken);
         return result.Success
             ? ServiceResponseFactory.Success(true)
-            : ServiceResponseFactory.Error<bool>(result.Message ?? "Failed to update MFA method");
+            : ServiceResponseFactory.Error<bool>(result.Message);
     }
 
     /// <summary>

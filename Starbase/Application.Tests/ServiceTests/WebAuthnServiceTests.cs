@@ -90,7 +90,7 @@ public class WebAuthnServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Success.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Failed to start registration process");
+        result.Message.Should().Be("Failed to start registration process");
     }
 
     [Fact]
@@ -140,11 +140,11 @@ public class WebAuthnServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        result.Success.Should().BeTrue($"because registration should succeed, but got error: {result.ErrorMessage}");
-        result.Options.Should().NotBeNull();
-        result.Options!.Challenge.Should().NotBeNullOrEmpty();
-        result.Options.User.Name.Should().Be(userName);
-        result.Options.User.DisplayName.Should().Be(displayName);
+        result.Success.Should().BeTrue($"because registration should succeed, but got error: {result.Message}");
+        result.Data.Should().NotBeNull();
+        result.Data!.Challenge.Should().NotBeNullOrEmpty();
+        result.Data.User.Name.Should().Be(userName);
+        result.Data.User.DisplayName.Should().Be(displayName);
 
         // Verify cache was used
         _distributedCache.Verify(x => x.SetAsync(
@@ -226,7 +226,7 @@ public class WebAuthnServiceTests
 
         // Assert
         result.Success.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Failed to start registration process");
+        result.Message.Should().Be("Failed to start registration process");
     }
 
     [Fact]
@@ -250,7 +250,7 @@ public class WebAuthnServiceTests
 
         // Assert
         result.Success.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Invalid or expired challenge");
+        result.Message.Should().Be("Invalid or expired challenge");
     }
 
     [Fact]
@@ -276,7 +276,7 @@ public class WebAuthnServiceTests
 
         // Assert
         result.Success.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Invalid challenge data");
+        result.Message.Should().Be("Invalid challenge data");
     }
 
     #endregion
@@ -334,11 +334,11 @@ public class WebAuthnServiceTests
         result.Should().NotBeNull();
         if (!result.Success)
         {
-            throw new Exception($"WebAuthn StartAuthentication failed: {result.ErrorMessage}");
+            throw new Exception($"WebAuthn StartAuthentication failed: {result.Message}");
         }
         result.Success.Should().BeTrue();
-        result.Options.Should().NotBeNull();
-        result.Options!.Challenge.Should().NotBeNullOrEmpty();
+        result.Data.Should().NotBeNull();
+        result.Data!.Challenge.Should().NotBeNullOrEmpty();
 
         _distributedCache.Verify(x => x.SetAsync(
             It.Is<string>(key => key.StartsWith("webauthn:auth:")),
@@ -359,7 +359,7 @@ public class WebAuthnServiceTests
 
         // Assert
         result.Success.Should().BeFalse();
-        result.ErrorMessage.Should().Be("No registered credentials found");
+        result.Message.Should().Be("No registered credentials found");
     }
 
     [Fact]
@@ -378,7 +378,7 @@ public class WebAuthnServiceTests
 
         // Assert
         result.Success.Should().BeFalse();
-        result.ErrorMessage.Should().Be("invalid or expired challenge");
+        result.Message.Should().Be("Invalid or expired challenge");
     }
 
     [Fact]
@@ -408,7 +408,7 @@ public class WebAuthnServiceTests
 
         // Assert
         result.Success.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Invalid credential");
+        result.Message.Should().Be("Invalid credential");
     }
 
     #endregion
@@ -454,14 +454,15 @@ public class WebAuthnServiceTests
         var result = await _service.GetUserCredentialsAsync(_userId);
 
         // Assert
-        result.Should().HaveCount(2);
+        result.Success.Should().BeTrue();
+        result.Data.Should().HaveCount(2);
 
-        var platformCred = result.First(c => c.Name == "Platform Authenticator");
+        var platformCred = result.Data!.First(c => c.Name == "Platform Authenticator");
         platformCred.AuthenticatorType.Should().Be("Platform");
         platformCred.Transports.Should().Contain("internal");
         platformCred.LastUsedAt.Should().BeNull();
 
-        var crossPlatformCred = result.First(c => c.Name == "YubiKey");
+        var crossPlatformCred = result.Data!.First(c => c.Name == "YubiKey");
         crossPlatformCred.AuthenticatorType.Should().Be("CrossPlatform");
         crossPlatformCred.Transports.Should().Contain("usb");
         crossPlatformCred.Transports.Should().Contain("nfc");
@@ -479,11 +480,12 @@ public class WebAuthnServiceTests
         var result = await _service.GetUserCredentialsAsync(_userId);
 
         // Assert
-        result.Should().BeEmpty();
+        result.Success.Should().BeTrue();
+        result.Data.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task RemoveCredentialAsync_ShouldReturnTrue_WhenCredentialExistsAndBelongsToUser()
+    public async Task RemoveCredentialAsync_ShouldReturnSuccess_WhenCredentialExistsAndBelongsToUser()
     {
         // Arrange
         var credential = WebAuthnCredential.Create(
@@ -508,12 +510,12 @@ public class WebAuthnServiceTests
         var result = await _service.RemoveCredentialAsync(_userId, _credentialId);
 
         // Assert
-        result.Should().BeTrue();
+        result.Success.Should().BeTrue();
         _credentialRepository.Verify(x => x.Remove(credential), Times.Once);
     }
 
     [Fact]
-    public async Task RemoveCredentialAsync_ShouldReturnFalse_WhenCredentialNotFound()
+    public async Task RemoveCredentialAsync_ShouldReturnFailure_WhenCredentialNotFound()
     {
         // Arrange
         _credentialRepository.Setup(x => x.GetByIdAsync(_credentialId, It.IsAny<CancellationToken>()))
@@ -523,12 +525,12 @@ public class WebAuthnServiceTests
         var result = await _service.RemoveCredentialAsync(_userId, _credentialId);
 
         // Assert
-        result.Should().BeFalse();
+        result.Success.Should().BeFalse();
         _credentialRepository.Verify(x => x.Remove(It.IsAny<WebAuthnCredential>()), Times.Never);
     }
 
     [Fact]
-    public async Task RemoveCredentialAsync_ShouldReturnFalse_WhenCredentialBelongsToOtherUser()
+    public async Task RemoveCredentialAsync_ShouldReturnFailure_WhenCredentialBelongsToOtherUser()
     {
         // Arrange
         var otherUserId = Guid.NewGuid();
@@ -552,12 +554,12 @@ public class WebAuthnServiceTests
         var result = await _service.RemoveCredentialAsync(_userId, _credentialId);
 
         // Assert
-        result.Should().BeFalse();
+        result.Success.Should().BeFalse();
         _credentialRepository.Verify(x => x.Remove(It.IsAny<WebAuthnCredential>()), Times.Never);
     }
 
     [Fact]
-    public async Task UpdateCredentialNameAsync_ShouldReturnTrue_WhenCredentialExistsAndBelongsToUser()
+    public async Task UpdateCredentialNameAsync_ShouldReturnSuccess_WhenCredentialExistsAndBelongsToUser()
     {
         // Arrange
         var newName = "Updated Security Key";
@@ -581,12 +583,12 @@ public class WebAuthnServiceTests
         var result = await _service.UpdateCredentialNameAsync(_userId, _credentialId, newName);
 
         // Assert
-        result.Should().BeTrue();
+        result.Success.Should().BeTrue();
         credential.Name.Should().Be(newName);
     }
 
     [Fact]
-    public async Task UpdateCredentialNameAsync_ShouldReturnFalse_WhenCredentialNotFound()
+    public async Task UpdateCredentialNameAsync_ShouldReturnFailure_WhenCredentialNotFound()
     {
         // Arrange
         _credentialRepository.Setup(x => x.GetByIdAsync(_credentialId, It.IsAny<CancellationToken>()))
@@ -596,11 +598,11 @@ public class WebAuthnServiceTests
         var result = await _service.UpdateCredentialNameAsync(_userId, _credentialId, "New Name");
 
         // Assert
-        result.Should().BeFalse();
+        result.Success.Should().BeFalse();
     }
 
     [Fact]
-    public async Task UpdateCredentialNameAsync_ShouldReturnFalse_WhenCredentialBelongsToOtherUser()
+    public async Task UpdateCredentialNameAsync_ShouldReturnFailure_WhenCredentialBelongsToOtherUser()
     {
         // Arrange
         var otherUserId = Guid.NewGuid();
@@ -624,7 +626,7 @@ public class WebAuthnServiceTests
         var result = await _service.UpdateCredentialNameAsync(_userId, _credentialId, "New Name");
 
         // Assert
-        result.Should().BeFalse();
+        result.Success.Should().BeFalse();
         credential.Name.Should().Be("Original Name"); // Should remain unchanged
     }
 
@@ -633,7 +635,7 @@ public class WebAuthnServiceTests
     #region Exception Handling Tests
 
     [Fact]
-    public async Task RemoveCredentialAsync_ShouldReturnFalse_WhenExceptionThrown()
+    public async Task RemoveCredentialAsync_ShouldReturnFailure_WhenExceptionThrown()
     {
         // Arrange
         _credentialRepository.Setup(x => x.GetByIdAsync(_credentialId, It.IsAny<CancellationToken>()))
@@ -643,11 +645,11 @@ public class WebAuthnServiceTests
         var result = await _service.RemoveCredentialAsync(_userId, _credentialId);
 
         // Assert
-        result.Should().BeFalse();
+        result.Success.Should().BeFalse();
     }
 
     [Fact]
-    public async Task UpdateCredentialNameAsync_ShouldReturnFalse_WhenExceptionThrown()
+    public async Task UpdateCredentialNameAsync_ShouldReturnFailure_WhenExceptionThrown()
     {
         // Arrange
         _credentialRepository.Setup(x => x.GetByIdAsync(_credentialId, It.IsAny<CancellationToken>()))
@@ -657,7 +659,7 @@ public class WebAuthnServiceTests
         var result = await _service.UpdateCredentialNameAsync(_userId, _credentialId, "New Name");
 
         // Assert
-        result.Should().BeFalse();
+        result.Success.Should().BeFalse();
     }
 
     [Fact]
@@ -672,7 +674,7 @@ public class WebAuthnServiceTests
 
         // Assert
         result.Success.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Failed to start authentication process");
+        result.Message.Should().Be("Failed to start authentication process");
     }
 
     [Fact]
@@ -699,7 +701,7 @@ public class WebAuthnServiceTests
 
         // Assert
         result.Success.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Failed to complete authentication");
+        result.Message.Should().Be("Failed to complete authentication");
     }
 
     #endregion

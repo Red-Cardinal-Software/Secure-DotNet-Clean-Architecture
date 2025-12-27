@@ -1,4 +1,6 @@
 using Application.DTOs.Auth;
+using Application.DTOs.Mfa;
+using Application.Models;
 using Domain.Entities.Security;
 
 namespace Application.Interfaces.Services;
@@ -19,7 +21,7 @@ public interface IMfaAuthenticationService
     /// <param name="userAgent">User agent of the login attempt</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>MFA challenge information</returns>
-    Task<MfaChallengeDto> CreateChallengeAsync(Guid userId, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default);
+    Task<ServiceResponse<MfaChallengeDto>> CreateChallengeAsync(Guid userId, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Verifies an MFA challenge with the provided code.
@@ -27,7 +29,7 @@ public interface IMfaAuthenticationService
     /// <param name="completeMfaDto">Challenge token and verification code</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Verification result with user information</returns>
-    Task<MfaVerificationResult> VerifyMfaAsync(CompleteMfaDto completeMfaDto, CancellationToken cancellationToken = default);
+    Task<ServiceResponse<MfaVerificationResultDto>> VerifyMfaAsync(CompleteMfaDto completeMfaDto, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Invalidates all active challenges for a user.
@@ -36,7 +38,7 @@ public interface IMfaAuthenticationService
     /// <param name="userId">The user ID</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Number of challenges invalidated</returns>
-    Task<int> InvalidateUserChallengesAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<ServiceResponse<int>> InvalidateUserChallengesAsync(Guid userId, CancellationToken cancellationToken = default);
 
     #endregion
 
@@ -100,80 +102,4 @@ public interface IMfaAuthenticationService
     Task<int> CleanupExpiredChallengesAsync(DateTimeOffset? expiredBefore = null, CancellationToken cancellationToken = default);
 
     #endregion
-}
-
-/// <summary>
-/// Result of MFA verification attempt.
-/// </summary>
-public class MfaVerificationResult
-{
-    /// <summary>
-    /// Whether the verification was successful.
-    /// </summary>
-    public bool IsValid { get; init; }
-
-    /// <summary>
-    /// The user ID associated with this verification.
-    /// </summary>
-    public Guid UserId { get; init; }
-
-    /// <summary>
-    /// The MFA method that was used for verification.
-    /// </summary>
-    public Guid? MfaMethodId { get; init; }
-
-    /// <summary>
-    /// Number of verification attempts remaining for this challenge.
-    /// </summary>
-    public int AttemptsRemaining { get; init; }
-
-    /// <summary>
-    /// Whether this challenge has been exhausted (no more attempts allowed).
-    /// </summary>
-    public bool IsExhausted { get; init; }
-
-    /// <summary>
-    /// Error message if verification failed.
-    /// </summary>
-    public string? ErrorMessage { get; init; }
-
-    /// <summary>
-    /// Whether a recovery code was used for this verification.
-    /// </summary>
-    public bool UsedRecoveryCode { get; init; }
-
-    /// <summary>
-    /// Additional verification metadata.
-    /// </summary>
-    public Dictionary<string, object>? Metadata { get; init; }
-
-    /// <summary>
-    /// Creates a successful verification result.
-    /// </summary>
-    public static MfaVerificationResult Success(Guid userId, Guid? mfaMethodId = null, bool usedRecoveryCode = false)
-    {
-        return new MfaVerificationResult
-        {
-            IsValid = true,
-            UserId = userId,
-            MfaMethodId = mfaMethodId,
-            AttemptsRemaining = 0,
-            IsExhausted = false,
-            UsedRecoveryCode = usedRecoveryCode
-        };
-    }
-
-    /// <summary>
-    /// Creates a failed verification result.
-    /// </summary>
-    public static MfaVerificationResult Failure(string errorMessage, int attemptsRemaining = 0, bool isExhausted = false)
-    {
-        return new MfaVerificationResult
-        {
-            IsValid = false,
-            ErrorMessage = errorMessage,
-            AttemptsRemaining = attemptsRemaining,
-            IsExhausted = isExhausted
-        };
-    }
 }

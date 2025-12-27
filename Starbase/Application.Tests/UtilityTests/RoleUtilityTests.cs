@@ -127,9 +127,9 @@ public class RoleUtilityTests
     [Fact]
     public void IsUserAdminOrSuperAdmin_WithAdmin_ReturnsTrue()
     {
-        var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity([
             new Claim(ClaimTypes.Role, PredefinedRoles.Admin)
-        }));
+        ]));
 
         Assert.True(RoleUtility.IsUserAdminOrSuperAdmin(principal));
     }

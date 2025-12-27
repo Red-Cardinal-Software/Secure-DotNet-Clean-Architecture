@@ -28,7 +28,7 @@ public class AuditLedgerService(
     /// </summary>
     private const string GenesisHash = "0000000000000000000000000000000000000000000000000000000000000000";
 
-    private static readonly SemaphoreSlim _appendLock = new(1, 1);
+    private static readonly SemaphoreSlim AppendLock = new(1, 1);
 
     /// <inheritdoc />
     public async Task<ServiceResponse<AuditEntryDto>> RecordAsync(CreateAuditEntryDto entry)
@@ -54,7 +54,7 @@ public class AuditLedgerService(
     /// <inheritdoc />
     public async Task<ServiceResponse<List<AuditEntryDto>>> RecordBatchAsync(IEnumerable<CreateAuditEntryDto> entries)
     {
-        await _appendLock.WaitAsync();
+        await AppendLock.WaitAsync();
         try
         {
             return await RunWithCommitAsync(async () =>
@@ -105,7 +105,7 @@ public class AuditLedgerService(
         }
         finally
         {
-            _appendLock.Release();
+            AppendLock.Release();
         }
     }
 
@@ -212,7 +212,7 @@ public class AuditLedgerService(
             previousHash = prevEntries.FirstOrDefault()?.Hash ?? GenesisHash;
         }
 
-        long expectedSequence = start;
+        var expectedSequence = start;
         foreach (var entry in entries.OrderBy(e => e.SequenceNumber))
         {
             // Check for sequence gaps

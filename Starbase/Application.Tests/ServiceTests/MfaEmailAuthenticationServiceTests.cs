@@ -25,17 +25,16 @@ public class MfaEmailAuthenticationServiceTests
     }
 
     [Fact]
-    public async Task SendCodeAsync_WithoutEmailInRequestOrClaims_ThrowsException()
+    public async Task SendCodeAsync_WithoutEmailInRequestOrClaims_ReturnsError()
     {
         // Arrange
         var userId = Guid.NewGuid();
         var challengeId = Guid.NewGuid();
-        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
-        {
+        var user = new ClaimsPrincipal(new ClaimsIdentity([
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
             new Claim(ClaimTypes.Name, "testuser")
             // No email claim
-        }));
+        ]));
 
         var request = new SendEmailCodeDto
         {
@@ -43,11 +42,12 @@ public class MfaEmailAuthenticationServiceTests
             EmailAddress = null
         };
 
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _service.SendCodeAsync(user, request, null));
+        // Act
+        var result = await _service.SendCodeAsync(user, request, null);
 
-        exception.Message.Should().Be("No email address provided and no email found in user profile");
+        // Assert
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("No email address provided and no email found in user profile");
     }
 
     [Fact]
@@ -58,12 +58,11 @@ public class MfaEmailAuthenticationServiceTests
         var challengeId = Guid.NewGuid();
         var email = "user@domain.com";
 
-        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
-        {
+        var user = new ClaimsPrincipal(new ClaimsIdentity([
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
             new Claim(ClaimTypes.Name, "testuser"),
             new Claim(ClaimTypes.Email, email)
-        }));
+        ]));
 
         var request = new SendEmailCodeDto
         {
@@ -83,7 +82,7 @@ public class MfaEmailAuthenticationServiceTests
         _emailMfaService.Verify(x => x.SendCodeAsync(challengeId, userId, email, null, It.IsAny<CancellationToken>()), Times.Once);
         result.Should().NotBeNull();
         result.Success.Should().BeTrue();
-        result.MaskedEmail.Should().Be("u**r@domain.com");
+        result.Data!.MaskedEmail.Should().Be("u**r@domain.com");
     }
 
     [Theory]
@@ -96,12 +95,11 @@ public class MfaEmailAuthenticationServiceTests
         var userId = Guid.NewGuid();
         var challengeId = Guid.NewGuid();
 
-        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
-        {
+        var user = new ClaimsPrincipal(new ClaimsIdentity([
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
             new Claim(ClaimTypes.Name, "testuser"),
             new Claim(ClaimTypes.Email, email)
-        }));
+        ]));
 
         var request = new SendEmailCodeDto
         {
@@ -151,11 +149,10 @@ public class MfaEmailAuthenticationServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
-        {
+        var user = new ClaimsPrincipal(new ClaimsIdentity([
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
             new Claim(ClaimTypes.Name, "testuser")
-        }));
+        ]));
 
         // Mock the service to return success
         var mockResult = new MfaRateLimitResult
@@ -174,15 +171,9 @@ public class MfaEmailAuthenticationServiceTests
         // Assert
         _emailMfaService.Verify(x => x.CheckRateLimitAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
         result.Should().NotBeNull();
-
-        // Cast to anonymous type via reflection since we know the structure
-        var resultType = result.GetType();
-        var isAllowed = (bool)resultType.GetProperty("isAllowed")!.GetValue(result)!;
-        var codesUsed = (int)resultType.GetProperty("codesUsed")!.GetValue(result)!;
-        var maxCodes = (int)resultType.GetProperty("maxCodes")!.GetValue(result)!;
-
-        Assert.True(isAllowed);
-        Assert.Equal(2, codesUsed);
-        Assert.Equal(5, maxCodes);
+        result.Success.Should().BeTrue();
+        result.Data!.IsAllowed.Should().BeTrue();
+        result.Data.CodesUsed.Should().Be(2);
+        result.Data.MaxCodes.Should().Be(5);
     }
 }

@@ -1,5 +1,7 @@
 using Application.Common.Configuration;
+using Application.Common.Factories;
 using Application.DTOs.Auth;
+using Application.DTOs.Mfa.WebAuthn;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Security;
@@ -119,30 +121,37 @@ public class MfaAuthenticationServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        result.ChallengeToken.Should().NotBeNullOrEmpty();
-        result.AvailableMethods.Should().HaveCount(1);
-        result.AvailableMethods[0].Type.Should().Be(MfaType.Totp);
-        result.AvailableMethods[0].IsDefault.Should().BeTrue();
-        result.Instructions.Should().Contain("authenticator app");
+        result.Data!.ChallengeToken.Should().NotBeNullOrEmpty();
+        result.Data!.AvailableMethods.Should().HaveCount(1);
+        result.Data!.AvailableMethods[0].Type.Should().Be(MfaType.Totp);
+        result.Data!.AvailableMethods[0].IsDefault.Should().BeTrue();
+        result.Data!.Instructions.Should().Contain("authenticator app");
 
         _mfaChallengeRepository.Verify(x => x.AddAsync(It.IsAny<MfaChallenge>(), It.IsAny<CancellationToken>()), Times.Once);
         _unitOfWork.Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task CreateChallengeAsync_ShouldThrow_WhenUserHasNoEnabledMethods()
+    public async Task CreateChallengeAsync_ShouldReturnError_WhenUserHasNoEnabledMethods()
     {
         // Arrange
         _mfaMethodRepository.Setup(x => x.GetEnabledByUserIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<MfaMethod>());
+        _mfaChallengeRepository.Setup(x => x.GetActiveChallengeCountAsync(_userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _mfaChallengeRepository.Setup(x => x.GetChallengeCountSinceAsync(_userId, It.IsAny<DateTimeOffset>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
 
-        // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.CreateChallengeAsync(_userId));
+        // Act
+        var result = await _service.CreateChallengeAsync(_userId);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("no enabled MFA methods");
     }
 
     [Fact]
-    public async Task CreateChallengeAsync_ShouldThrow_WhenRateLimited()
+    public async Task CreateChallengeAsync_ShouldReturnError_WhenRateLimited()
     {
         // Arrange
         var enabledMethods = new List<MfaMethod> { CreateTotpMethod(_userId) };
@@ -152,9 +161,12 @@ public class MfaAuthenticationServiceTests
         _mfaChallengeRepository.Setup(x => x.GetActiveChallengeCountAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(5); // Exceeds max of 3
 
-        // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _service.CreateChallengeAsync(_userId));
+        // Act
+        var result = await _service.CreateChallengeAsync(_userId);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.Message.Should().Contain("Too many MFA challenges");
     }
 
     [Fact]
@@ -183,7 +195,7 @@ public class MfaAuthenticationServiceTests
         var result = await _service.CreateChallengeAsync(_userId, "192.168.1.1");
 
         // Assert
-        result.Instructions.Should().Contain("email");
+        result.Data!.Instructions.Should().Contain("email");
         _mfaEmailService.Verify(x => x.SendCodeAsync(
             It.IsAny<Guid>(),
             _userId,
@@ -211,8 +223,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.CreateChallengeAsync(_userId);
 
         // Assert
-        result.AvailableMethods.Should().HaveCount(2);
-        result.Instructions.Should().Contain("authenticator app"); // First method (TOTP)
+        result.Data!.AvailableMethods.Should().HaveCount(2);
+        result.Data!.Instructions.Should().Contain("authenticator app"); // First method (TOTP)
     }
 
     #endregion
@@ -243,10 +255,10 @@ public class MfaAuthenticationServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        result.IsValid.Should().BeTrue();
-        result.UserId.Should().Be(_userId);
-        result.MfaMethodId.Should().Be(method.Id);
-        result.UsedRecoveryCode.Should().BeFalse();
+        result.Success.Should().BeTrue();
+        result.Data!.UserId.Should().Be(_userId);
+        result.Data!.MfaMethodId.Should().Be(method.Id);
+        result.Data!.UsedRecoveryCode.Should().BeFalse();
 
         _mfaChallengeRepository.Verify(x => x.InvalidateAllUserChallengesAsync(_userId, It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -268,8 +280,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Invalid or expired challenge token");
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Invalid or expired challenge token");
     }
 
     [Fact]
@@ -294,8 +306,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Challenge has expired or been exhausted");
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Challenge has expired or been exhausted");
     }
 
     [Fact]
@@ -322,9 +334,9 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeFalse();
-        result.IsExhausted.Should().BeTrue();
-        result.ErrorMessage.Should().Be("Maximum verification attempts exceeded");
+        result.Success.Should().BeFalse();
+        result.Data!.IsExhausted.Should().BeTrue();
+        result.Message.Should().Be("Maximum verification attempts exceeded");
     }
 
     [Fact]
@@ -350,8 +362,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Invalid authenticator code");
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Invalid authenticator code");
     }
 
     // NOTE: Recovery code testing is skipped because MfaRecoveryCodeService is a concrete class
@@ -384,9 +396,9 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeTrue();
-        result.UserId.Should().Be(_userId);
-        result.MfaMethodId.Should().Be(method.Id);
+        result.Success.Should().BeTrue();
+        result.Data!.UserId.Should().Be(_userId);
+        result.Data!.MfaMethodId.Should().Be(method.Id);
     }
 
     [Fact]
@@ -409,8 +421,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Invalid MFA method");
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Invalid MFA method");
     }
 
     [Fact]
@@ -434,8 +446,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Invalid MFA method");
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Invalid MFA method");
     }
 
     #endregion
@@ -453,7 +465,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.InvalidateUserChallengesAsync(_userId);
 
         // Assert
-        result.Should().Be(3);
+        result.Success.Should().BeTrue();
+        result.Data.Should().Be(3);
         _unitOfWork.Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -468,7 +481,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.InvalidateUserChallengesAsync(_userId);
 
         // Assert
-        result.Should().Be(0);
+        result.Success.Should().BeTrue();
+        result.Data.Should().Be(0);
         _unitOfWork.Verify(x => x.CommitAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -704,8 +718,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Method configuration error");
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Method configuration error");
     }
 
     [Fact]
@@ -731,8 +745,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeFalse();
-        result.ErrorMessage.Should().Be("No active email challenge found");
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("No active email challenge found");
     }
 
     [Fact]
@@ -759,8 +773,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Invalid recovery code");
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Invalid recovery code");
     }
 
     [Fact]
@@ -791,7 +805,7 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeTrue();
+        result.Success.Should().BeTrue();
         _mfaMethodRepository.Verify(x => x.GetByIdAsync(specificMethodId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -824,14 +838,14 @@ public class MfaAuthenticationServiceTests
                 challenge.ChallengeToken,
                 It.IsAny<WebAuthnAssertionResponse>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(WebAuthnAuthenticationCompletionResult.Successful(_userId, Guid.NewGuid()));
+            .ReturnsAsync(ServiceResponseFactory.Success(new WebAuthnAuthenticationResultDto { UserId = _userId, CredentialId = Guid.NewGuid() }));
 
         // Act
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeTrue();
-        result.UserId.Should().Be(_userId);
+        result.Success.Should().BeTrue();
+        result.Data!.UserId.Should().Be(_userId);
     }
 
     [Fact]
@@ -858,14 +872,14 @@ public class MfaAuthenticationServiceTests
                 It.IsAny<string>(),
                 It.IsAny<WebAuthnAssertionResponse>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(WebAuthnAuthenticationCompletionResult.Failed("Invalid assertion"));
+            .ReturnsAsync(ServiceResponseFactory.Error<WebAuthnAuthenticationResultDto>("Invalid assertion"));
 
         // Act
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeFalse();
-        result.ErrorMessage.Should().Be("Invalid assertion");
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("Invalid assertion");
     }
 
     [Fact]
@@ -892,8 +906,8 @@ public class MfaAuthenticationServiceTests
         var result = await _service.VerifyMfaAsync(completeMfaDto);
 
         // Assert
-        result.IsValid.Should().BeFalse();
-        result.ErrorMessage.Should().Be("No active WebAuthn challenge found");
+        result.Success.Should().BeFalse();
+        result.Message.Should().Be("No active WebAuthn challenge found");
     }
 
     #endregion

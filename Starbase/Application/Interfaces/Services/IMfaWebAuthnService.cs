@@ -1,4 +1,5 @@
 using Application.DTOs.Mfa.WebAuthn;
+using Application.Models;
 using System.Security.Claims;
 
 namespace Application.Interfaces.Services;
@@ -15,7 +16,7 @@ public interface IMfaWebAuthnService
     /// <param name="user">The authenticated user</param>
     /// <param name="request">Registration start request</param>
     /// <returns>Registration options for the client</returns>
-    Task<object> StartRegistrationAsync(ClaimsPrincipal user, StartRegistrationDto request);
+    Task<ServiceResponse<WebAuthnRegistrationOptions>> StartRegistrationAsync(ClaimsPrincipal user, StartRegistrationDto request);
 
     /// <summary>
     /// Completes the WebAuthn credential registration process.
@@ -25,36 +26,36 @@ public interface IMfaWebAuthnService
     /// <param name="ipAddress">Client IP address</param>
     /// <param name="userAgent">Client user agent</param>
     /// <returns>Registration result</returns>
-    Task<object> CompleteRegistrationAsync(ClaimsPrincipal user, CompleteRegistrationDto request, string? ipAddress, string? userAgent);
+    Task<ServiceResponse<WebAuthnRegistrationResultDto>> CompleteRegistrationAsync(ClaimsPrincipal user, CompleteRegistrationDto request, string? ipAddress, string? userAgent);
 
     /// <summary>
     /// Starts the WebAuthn authentication process for a user.
     /// </summary>
     /// <param name="user">The authenticated user</param>
     /// <returns>Authentication options for the client</returns>
-    Task<object> StartAuthenticationAsync(ClaimsPrincipal user);
+    Task<ServiceResponse<WebAuthnAuthenticationOptions>> StartAuthenticationAsync(ClaimsPrincipal user);
 
     /// <summary>
     /// Completes the WebAuthn authentication process.
     /// </summary>
     /// <param name="request">Authentication completion request with assertion</param>
     /// <returns>Authentication result</returns>
-    Task<object> CompleteAuthenticationAsync(CompleteAuthenticationDto request);
+    Task<ServiceResponse<WebAuthnAuthenticationResultDto>> CompleteAuthenticationAsync(CompleteAuthenticationDto request);
 
     /// <summary>
     /// Gets all WebAuthn credentials for a user.
     /// </summary>
     /// <param name="user">The authenticated user</param>
     /// <returns>List of user's WebAuthn credentials</returns>
-    Task<IEnumerable<WebAuthnCredentialDto>> GetUserCredentialsAsync(ClaimsPrincipal user);
+    Task<ServiceResponse<IEnumerable<WebAuthnCredentialDto>>> GetUserCredentialsAsync(ClaimsPrincipal user);
 
     /// <summary>
     /// Removes a WebAuthn credential for a user.
     /// </summary>
     /// <param name="user">The authenticated user</param>
     /// <param name="credentialId">The credential ID to remove</param>
-    /// <returns>Success message</returns>
-    Task<object> RemoveCredentialAsync(ClaimsPrincipal user, Guid credentialId);
+    /// <returns>Success response</returns>
+    Task<ServiceResponse<bool>> RemoveCredentialAsync(ClaimsPrincipal user, Guid credentialId);
 
     /// <summary>
     /// Updates the name of a WebAuthn credential.
@@ -62,6 +63,6 @@ public interface IMfaWebAuthnService
     /// <param name="user">The authenticated user</param>
     /// <param name="credentialId">The credential ID to update</param>
     /// <param name="request">The update request with new name</param>
-    /// <returns>Success message</returns>
-    Task<object> UpdateCredentialNameAsync(ClaimsPrincipal user, Guid credentialId, UpdateCredentialNameDto request);
+    /// <returns>Success response</returns>
+    Task<ServiceResponse<bool>> UpdateCredentialNameAsync(ClaimsPrincipal user, Guid credentialId, UpdateCredentialNameDto request);
 }

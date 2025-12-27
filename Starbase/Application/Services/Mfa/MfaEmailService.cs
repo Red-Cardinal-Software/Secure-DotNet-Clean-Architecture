@@ -1,6 +1,5 @@
 using System.Buffers.Binary;
 using Application.Common.Configuration;
-using Application.Common.Email;
 using Application.DTOs.Email;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Security;

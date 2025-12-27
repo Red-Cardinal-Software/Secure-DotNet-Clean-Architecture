@@ -1,4 +1,5 @@
 using Application.DTOs.Mfa.EmailMfa;
+using Application.Models;
 using System.Security.Claims;
 
 namespace Application.Interfaces.Services;
@@ -16,19 +17,19 @@ public interface IMfaEmailAuthenticationService
     /// <param name="request">The send code request details</param>
     /// <param name="ipAddress">Client IP address for rate limiting and security</param>
     /// <returns>Information about the sent code</returns>
-    Task<EmailCodeSentDto> SendCodeAsync(ClaimsPrincipal user, SendEmailCodeDto request, string? ipAddress);
+    Task<ServiceResponse<EmailCodeSentDto>> SendCodeAsync(ClaimsPrincipal user, SendEmailCodeDto request, string? ipAddress);
 
     /// <summary>
     /// Verifies an email MFA code.
     /// </summary>
     /// <param name="request">The verification request details</param>
     /// <returns>Verification result</returns>
-    Task<EmailCodeVerificationDto> VerifyCodeAsync(VerifyEmailCodeDto request);
+    Task<ServiceResponse<EmailCodeVerificationDto>> VerifyCodeAsync(VerifyEmailCodeDto request);
 
     /// <summary>
     /// Checks the rate limit status for a user.
     /// </summary>
     /// <param name="user">The authenticated user</param>
     /// <returns>Rate limit information</returns>
-    Task<object> CheckRateLimitAsync(ClaimsPrincipal user);
+    Task<ServiceResponse<EmailRateLimitDto>> CheckRateLimitAsync(ClaimsPrincipal user);
 }

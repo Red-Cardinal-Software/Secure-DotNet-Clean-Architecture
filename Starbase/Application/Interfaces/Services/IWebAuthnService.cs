@@ -1,3 +1,5 @@
+using Application.DTOs.Mfa.WebAuthn;
+using Application.Models;
 using Domain.Entities.Security;
 
 namespace Application.Interfaces.Services;
@@ -17,7 +19,7 @@ public interface IWebAuthnService
     /// <param name="userDisplayName">The user's display name</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Registration challenge options</returns>
-    Task<WebAuthnRegistrationResult> StartRegistrationAsync(
+    Task<ServiceResponse<WebAuthnRegistrationOptions>> StartRegistrationAsync(
         Guid userId,
         Guid mfaMethodId,
         string userName,
@@ -36,7 +38,7 @@ public interface IWebAuthnService
     /// <param name="userAgent">Optional user agent for security tracking</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Registration completion result</returns>
-    Task<WebAuthnRegistrationCompletionResult> CompleteRegistrationAsync(
+    Task<ServiceResponse<WebAuthnRegistrationResultDto>> CompleteRegistrationAsync(
         Guid userId,
         Guid mfaMethodId,
         string challenge,
@@ -52,7 +54,7 @@ public interface IWebAuthnService
     /// <param name="userId">The user ID</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Authentication challenge options</returns>
-    Task<WebAuthnAuthenticationResult> StartAuthenticationAsync(
+    Task<ServiceResponse<WebAuthnAuthenticationOptions>> StartAuthenticationAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
 
@@ -64,7 +66,7 @@ public interface IWebAuthnService
     /// <param name="assertionResponse">The assertion response from the authenticator</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Authentication verification result</returns>
-    Task<WebAuthnAuthenticationCompletionResult> CompleteAuthenticationAsync(
+    Task<ServiceResponse<WebAuthnAuthenticationResultDto>> CompleteAuthenticationAsync(
         string credentialId,
         string challenge,
         WebAuthnAssertionResponse assertionResponse,
@@ -76,7 +78,7 @@ public interface IWebAuthnService
     /// <param name="userId">The user ID</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of user's WebAuthn credentials</returns>
-    Task<IReadOnlyList<WebAuthnCredentialInfo>> GetUserCredentialsAsync(
+    Task<ServiceResponse<IReadOnlyList<WebAuthnCredentialInfo>>> GetUserCredentialsAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
 
@@ -87,7 +89,7 @@ public interface IWebAuthnService
     /// <param name="credentialId">The credential ID to remove</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Success result</returns>
-    Task<bool> RemoveCredentialAsync(
+    Task<ServiceResponse<bool>> RemoveCredentialAsync(
         Guid userId,
         Guid credentialId,
         CancellationToken cancellationToken = default);
@@ -100,76 +102,11 @@ public interface IWebAuthnService
     /// <param name="name">The new name</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Success result</returns>
-    Task<bool> UpdateCredentialNameAsync(
+    Task<ServiceResponse<bool>> UpdateCredentialNameAsync(
         Guid userId,
         Guid credentialId,
         string name,
         CancellationToken cancellationToken = default);
-}
-
-/// <summary>
-/// Result of starting WebAuthn registration.
-/// </summary>
-public class WebAuthnRegistrationResult
-{
-    public bool Success { get; init; }
-    public string? ErrorMessage { get; init; }
-    public WebAuthnRegistrationOptions? Options { get; init; }
-
-    public static WebAuthnRegistrationResult Successful(WebAuthnRegistrationOptions options) =>
-        new() { Success = true, Options = options };
-
-    public static WebAuthnRegistrationResult Failed(string errorMessage) =>
-        new() { Success = false, ErrorMessage = errorMessage };
-}
-
-/// <summary>
-/// Result of completing WebAuthn registration.
-/// </summary>
-public class WebAuthnRegistrationCompletionResult
-{
-    public bool Success { get; init; }
-    public string? ErrorMessage { get; init; }
-    public Guid? CredentialId { get; init; }
-
-    public static WebAuthnRegistrationCompletionResult Successful(Guid credentialId) =>
-        new() { Success = true, CredentialId = credentialId };
-
-    public static WebAuthnRegistrationCompletionResult Failed(string errorMessage) =>
-        new() { Success = false, ErrorMessage = errorMessage };
-}
-
-/// <summary>
-/// Result of starting WebAuthn authentication.
-/// </summary>
-public class WebAuthnAuthenticationResult
-{
-    public bool Success { get; init; }
-    public string? ErrorMessage { get; init; }
-    public WebAuthnAuthenticationOptions? Options { get; init; }
-
-    public static WebAuthnAuthenticationResult Successful(WebAuthnAuthenticationOptions options) =>
-        new() { Success = true, Options = options };
-
-    public static WebAuthnAuthenticationResult Failed(string errorMessage) =>
-        new() { Success = false, ErrorMessage = errorMessage };
-}
-
-/// <summary>
-/// Result of completing WebAuthn authentication.
-/// </summary>
-public class WebAuthnAuthenticationCompletionResult
-{
-    public bool Success { get; init; }
-    public string? ErrorMessage { get; init; }
-    public Guid? UserId { get; init; }
-    public Guid? CredentialId { get; init; }
-
-    public static WebAuthnAuthenticationCompletionResult Successful(Guid userId, Guid credentialId) =>
-        new() { Success = true, UserId = userId, CredentialId = credentialId };
-
-    public static WebAuthnAuthenticationCompletionResult Failed(string errorMessage) =>
-        new() { Success = false, ErrorMessage = errorMessage };
 }
 
 /// <summary>

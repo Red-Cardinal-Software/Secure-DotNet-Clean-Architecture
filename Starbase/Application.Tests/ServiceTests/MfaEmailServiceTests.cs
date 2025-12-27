@@ -22,8 +22,6 @@ public class MfaEmailServiceTests
     private readonly Mock<IMfaEmailCodeRepository> _emailCodeRepository;
     private readonly Mock<IEmailService> _emailService;
     private readonly Mock<IPasswordHasher> _passwordHasher;
-    private readonly Mock<ILogger<MfaEmailService>> _logger;
-    private readonly IOptions<EmailMfaOptions> _emailMfaOptions;
     private readonly MfaEmailService _service;
 
     public MfaEmailServiceTests()
@@ -31,7 +29,7 @@ public class MfaEmailServiceTests
         _emailCodeRepository = new Mock<IMfaEmailCodeRepository>();
         _emailService = new Mock<IEmailService>();
         _passwordHasher = new Mock<IPasswordHasher>();
-        _logger = new Mock<ILogger<MfaEmailService>>();
+        var logger = new Mock<ILogger<MfaEmailService>>();
 
         var options = new EmailMfaOptions
         {
@@ -42,14 +40,14 @@ public class MfaEmailServiceTests
             AppName = "TestApp",
             EnableSecurityWarnings = true
         };
-        _emailMfaOptions = Options.Create(options);
+        var emailMfaOptions = Options.Create(options);
 
         _service = new MfaEmailService(
             _emailCodeRepository.Object,
             _emailService.Object,
             _passwordHasher.Object,
-            _emailMfaOptions,
-            _logger.Object);
+            emailMfaOptions,
+            logger.Object);
     }
 
     #region SendCodeAsync Tests

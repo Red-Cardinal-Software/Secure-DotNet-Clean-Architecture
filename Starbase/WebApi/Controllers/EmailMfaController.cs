@@ -61,7 +61,7 @@ public class EmailMfaController(
     /// <response code="200">Rate limit status returned</response>
     /// <response code="401">User not authenticated</response>
     [HttpGet("rate-limit")]
-    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EmailRateLimitDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> CheckRateLimit() =>
         await ResolveAsync(() => emailAuthService.CheckRateLimitAsync(User));

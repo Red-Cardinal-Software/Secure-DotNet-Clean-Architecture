@@ -1,10 +1,12 @@
 using Application.Common.Configuration;
-using Application.Common.Constants;
+using Application.Common.Factories;
 using Application.Common.Services;
 using Application.DTOs.Auth;
+using Application.DTOs.Mfa;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
+using Application.Models;
 using Domain.Entities.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -33,71 +35,76 @@ public class MfaAuthenticationService(
     /// <summary>
     /// Creates an MFA challenge for a user during login.
     /// </summary>
-    public async Task<MfaChallengeDto> CreateChallengeAsync(Guid userId, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default) => await RunWithCommitAsync(async () =>
+    public async Task<ServiceResponse<MfaChallengeDto>> CreateChallengeAsync(Guid userId, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default)
     {
         // Check rate limiting
         if (!await CanCreateChallengeAsync(userId, cancellationToken))
         {
-            throw new InvalidOperationException("Too many MFA challenges. Please wait before requesting another.");
+            return ServiceResponseFactory.Error<MfaChallengeDto>("Too many MFA challenges. Please wait before requesting another.", 429);
         }
 
         // Get user's enabled MFA methods
         var enabledMethods = await mfaMethodRepository.GetEnabledByUserIdAsync(userId, cancellationToken);
         if (enabledMethods.Count == 0)
         {
-            throw new InvalidOperationException("User has no enabled MFA methods");
+            return ServiceResponseFactory.Error<MfaChallengeDto>("User has no enabled MFA methods");
         }
 
-        // Get default method or first enabled method
-        var defaultMethod = enabledMethods.FirstOrDefault(m => m.IsDefault) ?? enabledMethods.First();
-
-        // Create challenge
-        var challenge = MfaChallenge.Create(
-            userId,
-            defaultMethod.Type,
-            defaultMethod.Id,
-            ipAddress,
-            userAgent);
-
-        await mfaChallengeRepository.AddAsync(challenge, cancellationToken);
-
-        // If the default method is email, send the email code immediately
-        if (defaultMethod.Type == MfaType.Email)
+        return await RunWithCommitAsync(async () =>
         {
-            await SendEmailCodeForChallengeAsync(challenge.Id, userId, defaultMethod, ipAddress, cancellationToken);
-        }
+            // Get default method or first enabled method
+            var defaultMethod = enabledMethods.FirstOrDefault(m => m.IsDefault) ?? enabledMethods.First();
 
-        // Map available methods to DTOs
-        var availableMethods = enabledMethods.Select(MapToAvailableMethodDto).ToArray();
+            // Create challenge
+            var challenge = MfaChallenge.Create(
+                userId,
+                defaultMethod.Type,
+                defaultMethod.Id,
+                ipAddress,
+                userAgent);
 
-        logger.LogInformation("MFA challenge created for user {UserId}, challenge {ChallengeId}",
-            userId, challenge.Id);
+            await mfaChallengeRepository.AddAsync(challenge, cancellationToken);
 
-        return new MfaChallengeDto
-        {
-            ChallengeToken = challenge.ChallengeToken,
-            AvailableMethods = availableMethods,
-            ExpiresAt = challenge.ExpiresAt,
-            AttemptsRemaining = challenge.GetRemainingAttempts(),
-            Instructions = GetInstructionsForMfaType(defaultMethod.Type)
-        };
-    });
+            // If the default method is email, send the email code immediately
+            if (defaultMethod.Type == MfaType.Email)
+            {
+                await SendEmailCodeForChallengeAsync(challenge.Id, userId, defaultMethod, ipAddress, cancellationToken);
+            }
+
+            // Map available methods to DTOs
+            var availableMethods = enabledMethods.Select(MapToAvailableMethodDto).ToArray();
+
+            logger.LogInformation("MFA challenge created for user {UserId}, challenge {ChallengeId}",
+                userId, challenge.Id);
+
+            return ServiceResponseFactory.Success(new MfaChallengeDto
+            {
+                ChallengeToken = challenge.ChallengeToken,
+                AvailableMethods = availableMethods,
+                ExpiresAt = challenge.ExpiresAt,
+                AttemptsRemaining = challenge.GetRemainingAttempts(),
+                Instructions = GetInstructionsForMfaType(defaultMethod.Type)
+            });
+        });
+    }
 
     /// <summary>
     /// Verifies an MFA challenge with the provided code.
     /// </summary>
-    public async Task<MfaVerificationResult> VerifyMfaAsync(CompleteMfaDto completeMfaDto, CancellationToken cancellationToken = default) => await RunWithCommitAsync(async () =>
+    public async Task<ServiceResponse<MfaVerificationResultDto>> VerifyMfaAsync(CompleteMfaDto completeMfaDto, CancellationToken cancellationToken = default) => await RunWithCommitAsync(async () =>
     {
         // Get and validate challenge
         var challenge = await mfaChallengeRepository.GetByChallengeTokenAsync(completeMfaDto.ChallengeToken, cancellationToken);
         if (challenge == null)
         {
-            return MfaVerificationResult.Failure("Invalid or expired challenge token");
+            return ServiceResponseFactory.Error<MfaVerificationResultDto>("Invalid or expired challenge token");
         }
 
         if (!challenge.IsValid())
         {
-            return MfaVerificationResult.Failure("Challenge has expired or been exhausted");
+            return ServiceResponseFactory.Error(
+                "Challenge has expired or been exhausted",
+                new MfaVerificationResultDto { AttemptsRemaining = 0, IsExhausted = true });
         }
 
         // Record attempt
@@ -108,7 +115,9 @@ public class MfaAuthenticationService(
             logger.LogWarning("MFA challenge {ChallengeId} exhausted for user {UserId}",
                 challenge.Id, challenge.UserId);
 
-            return MfaVerificationResult.Failure("Maximum verification attempts exceeded", 0, true);
+            return ServiceResponseFactory.Error(
+                "Maximum verification attempts exceeded",
+                new MfaVerificationResultDto { AttemptsRemaining = 0, IsExhausted = true });
         }
 
         // Determine which MFA method to use
@@ -120,7 +129,9 @@ public class MfaAuthenticationService(
 
         if (methodToUse == null || methodToUse.UserId != challenge.UserId || !methodToUse.IsEnabled)
         {
-            return MfaVerificationResult.Failure("Invalid MFA method", challenge.GetRemainingAttempts());
+            return ServiceResponseFactory.Error(
+                "Invalid MFA method",
+                new MfaVerificationResultDto { AttemptsRemaining = challenge.GetRemainingAttempts() });
         }
 
         // Verify the code
@@ -140,35 +151,41 @@ public class MfaAuthenticationService(
             logger.LogInformation("MFA verification successful for user {UserId}, method {MethodId}",
                 challenge.UserId, methodToUse.Id);
 
-            return MfaVerificationResult.Success(
-                challenge.UserId,
-                methodToUse.Id,
-                completeMfaDto.IsRecoveryCode);
+            return ServiceResponseFactory.Success(new MfaVerificationResultDto
+            {
+                UserId = challenge.UserId,
+                MfaMethodId = methodToUse.Id,
+                UsedRecoveryCode = completeMfaDto.IsRecoveryCode
+            });
         }
 
         logger.LogWarning("MFA verification failed for user {UserId}, method {MethodId}",
             challenge.UserId, methodToUse.Id);
 
-        return MfaVerificationResult.Failure(
+        return ServiceResponseFactory.Error(
             verificationResult.ErrorMessage ?? "Invalid verification code",
-            challenge.GetRemainingAttempts());
+            new MfaVerificationResultDto { AttemptsRemaining = challenge.GetRemainingAttempts() },
+            401);
     });
 
     /// <summary>
     /// Invalidates all active challenges for a user.
     /// </summary>
-    public async Task<int> InvalidateUserChallengesAsync(Guid userId, CancellationToken cancellationToken = default) => await RunWithCommitAsync(async () =>
+    public async Task<ServiceResponse<int>> InvalidateUserChallengesAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var invalidatedCount = await mfaChallengeRepository.InvalidateAllUserChallengesAsync(userId, cancellationToken);
-
-        if (invalidatedCount > 0)
+        return await RunWithCommitAsync(async () =>
         {
-            logger.LogInformation("Invalidated {Count} MFA challenges for user {UserId}",
-                invalidatedCount, userId);
-        }
+            var invalidatedCount = await mfaChallengeRepository.InvalidateAllUserChallengesAsync(userId, cancellationToken);
 
-        return invalidatedCount;
-    });
+            if (invalidatedCount > 0)
+            {
+                logger.LogInformation("Invalidated {Count} MFA challenges for user {UserId}",
+                    invalidatedCount, userId);
+            }
+
+            return ServiceResponseFactory.Success(invalidatedCount);
+        });
+    }
 
     #endregion
 
@@ -210,21 +227,21 @@ public class MfaAuthenticationService(
     {
         // Check active challenge count
         var activeChallenges = await GetActiveChallengeCountAsync(userId, cancellationToken);
-        var maxActiveChallenges = GetMfaConfiguration().MaxActiveChallenges;
+        var config = mfaOptions.Value;
 
-        if (activeChallenges >= maxActiveChallenges)
+        if (activeChallenges >= config.MaxActiveChallenges)
         {
             return false;
         }
 
         // Check recent challenge creation rate
-        var rateLimitWindow = TimeSpan.FromMinutes(GetMfaConfiguration().RateLimitWindowMinutes);
+        var rateLimitWindow = TimeSpan.FromMinutes(config.RateLimitWindowMinutes);
         var recentChallenges = await mfaChallengeRepository.GetChallengeCountSinceAsync(
             userId,
             DateTimeOffset.UtcNow.Subtract(rateLimitWindow),
             cancellationToken);
 
-        return recentChallenges < GetMfaConfiguration().MaxChallengesPerWindow;
+        return recentChallenges < config.MaxChallengesPerWindow;
     }
 
     /// <summary>
@@ -242,27 +259,35 @@ public class MfaAuthenticationService(
     /// <summary>
     /// Cleans up expired MFA challenges.
     /// </summary>
-    public async Task<int> CleanupExpiredChallengesAsync(DateTimeOffset? expiredBefore = null, CancellationToken cancellationToken = default) => await RunWithCommitAsync(async () =>
+    public async Task<int> CleanupExpiredChallengesAsync(DateTimeOffset? expiredBefore = null, CancellationToken cancellationToken = default)
     {
-        var cutoffTime = expiredBefore ?? DateTimeOffset.UtcNow.AddHours(-1); // Default cleanup after 1 hour
-        var cleanedUpCount = await mfaChallengeRepository.DeleteExpiredChallengesAsync(cutoffTime, cancellationToken);
-
-        if (cleanedUpCount > 0)
+        return await RunWithCommitAsync(async () =>
         {
-            logger.LogInformation("Cleaned up {Count} expired MFA challenges", cleanedUpCount);
-        }
+            var cutoffTime = expiredBefore ?? DateTimeOffset.UtcNow.AddHours(-1); // Default cleanup after 1 hour
+            var cleanedUpCount = await mfaChallengeRepository.DeleteExpiredChallengesAsync(cutoffTime, cancellationToken);
 
-        return cleanedUpCount;
-    });
+            if (cleanedUpCount > 0)
+            {
+                logger.LogInformation("Cleaned up {Count} expired MFA challenges", cleanedUpCount);
+            }
+
+            return cleanedUpCount;
+        });
+    }
 
     #endregion
 
     #region Private Methods
 
     /// <summary>
+    /// Internal result for code verification.
+    /// </summary>
+    private record VerificationResult(bool IsValid, string? ErrorMessage = null);
+
+    /// <summary>
     /// Verifies a code against a specific MFA method.
     /// </summary>
-    private async Task<MfaVerificationResult> VerifyCodeForMethod(MfaMethod method, string code, bool isRecoveryCode, CancellationToken cancellationToken)
+    private async Task<VerificationResult> VerifyCodeForMethod(MfaMethod method, string code, bool isRecoveryCode, CancellationToken cancellationToken)
     {
         if (isRecoveryCode)
         {
@@ -274,11 +299,11 @@ public class MfaAuthenticationService(
             {
                 if (mfaRecoveryCodeService.ValidateAndUseRecoveryCode(recoveryCode, code))
                 {
-                    return MfaVerificationResult.Success(method.UserId, method.Id, true);
+                    return new VerificationResult(true);
                 }
             }
 
-            return MfaVerificationResult.Failure("Invalid recovery code");
+            return new VerificationResult(false, "Invalid recovery code");
         }
 
         // Verify based on method type
@@ -286,31 +311,31 @@ public class MfaAuthenticationService(
         {
             MfaType.Totp => VerifyTotpCode(method, code),
             MfaType.Email => await VerifyEmailCode(method, code, cancellationToken),
-            MfaType.WebAuthn => await VerifyWebAuthnAssertion(method, code, cancellationToken),
-            _ => MfaVerificationResult.Failure("Unsupported MFA method")
+            MfaType.WebAuthn => await VerifyWebAuthnAssertion(method, cancellationToken),
+            _ => new VerificationResult(false, "Unsupported MFA method")
         };
     }
 
     /// <summary>
     /// Verifies a TOTP code.
     /// </summary>
-    private MfaVerificationResult VerifyTotpCode(MfaMethod method, string code)
+    private VerificationResult VerifyTotpCode(MfaMethod method, string code)
     {
         if (string.IsNullOrWhiteSpace(method.Secret))
         {
-            return MfaVerificationResult.Failure("Method configuration error");
+            return new VerificationResult(false, "Method configuration error");
         }
 
         var isValid = totpProvider.ValidateCode(method.Secret, code);
         return isValid
-            ? MfaVerificationResult.Success(method.UserId, method.Id)
-            : MfaVerificationResult.Failure("Invalid authenticator code");
+            ? new VerificationResult(true)
+            : new VerificationResult(false, "Invalid authenticator code");
     }
 
     /// <summary>
     /// Verifies an email code by delegating to the email MFA service.
     /// </summary>
-    private async Task<MfaVerificationResult> VerifyEmailCode(MfaMethod method, string code, CancellationToken cancellationToken)
+    private async Task<VerificationResult> VerifyEmailCode(MfaMethod method, string code, CancellationToken cancellationToken)
     {
         // Get active challenges and find one for this method type
         var activeChallenges = await mfaChallengeRepository.GetActiveByUserIdAsync(method.UserId, cancellationToken);
@@ -318,34 +343,31 @@ public class MfaAuthenticationService(
 
         if (emailChallenge == null)
         {
-            return MfaVerificationResult.Failure("No active email challenge found");
+            return new VerificationResult(false, "No active email challenge found");
         }
 
         // Verify the email code using the email service
         var verificationResult = await mfaEmailService.VerifyCodeAsync(emailChallenge.Id, code, cancellationToken);
 
         return verificationResult.Success
-            ? MfaVerificationResult.Success(method.UserId, method.Id)
-            : MfaVerificationResult.Failure(verificationResult.ErrorMessage ?? "Invalid email verification code", verificationResult.RemainingAttempts);
+            ? new VerificationResult(true)
+            : new VerificationResult(false, verificationResult.ErrorMessage ?? "Invalid email verification code");
     }
 
     /// <summary>
     /// Verifies a WebAuthn assertion by delegating to the WebAuthn service.
     /// </summary>
-    private async Task<MfaVerificationResult> VerifyWebAuthnAssertion(MfaMethod method, string assertionData, CancellationToken cancellationToken)
+    private async Task<VerificationResult> VerifyWebAuthnAssertion(MfaMethod method, CancellationToken cancellationToken)
     {
         try
         {
-            // Parse the assertion data (in real implementation, this would come from the client)
-            // For now, we'll assume the assertionData contains the necessary information
-
             // Get active challenges and find one for WebAuthn
             var activeChallenges = await mfaChallengeRepository.GetActiveByUserIdAsync(method.UserId, cancellationToken);
             var webAuthnChallenge = activeChallenges.FirstOrDefault(c => c.Type == MfaType.WebAuthn);
 
             if (webAuthnChallenge == null)
             {
-                return MfaVerificationResult.Failure("No active WebAuthn challenge found");
+                return new VerificationResult(false, "No active WebAuthn challenge found");
             }
 
             // In a real implementation, you would extract these from the client's assertion response
@@ -371,13 +393,13 @@ public class MfaAuthenticationService(
                 cancellationToken);
 
             return verificationResult.Success
-                ? MfaVerificationResult.Success(method.UserId, method.Id)
-                : MfaVerificationResult.Failure(verificationResult.ErrorMessage ?? "Invalid WebAuthn assertion");
+                ? new VerificationResult(true)
+                : new VerificationResult(false, verificationResult.Message);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error verifying WebAuthn assertion for method {MethodId}", method.Id);
-            return MfaVerificationResult.Failure("WebAuthn verification failed");
+            return new VerificationResult(false, "WebAuthn verification failed");
         }
     }
 
@@ -405,9 +427,9 @@ public class MfaAuthenticationService(
         return method.Type switch
         {
             MfaType.Totp => "Authenticator App",
-            MfaType.Email => "Email Verification", // Could extract email from metadata
-            MfaType.WebAuthn => "Security Key", // Could extract device name from metadata
-            MfaType.Push => "Push Notification", // Could extract device name from metadata
+            MfaType.Email => "Email Verification",
+            MfaType.WebAuthn => "Security Key",
+            MfaType.Push => "Push Notification",
             _ => method.Type.ToString()
         };
     }
@@ -424,21 +446,6 @@ public class MfaAuthenticationService(
             MfaType.WebAuthn => "Use your security key or device biometric",
             MfaType.Push => "Approve the notification on your device",
             _ => "Enter your verification code"
-        };
-    }
-
-    /// <summary>
-    /// Gets MFA configuration from appsettings.
-    /// </summary>
-    private MfaAuthenticationConfiguration GetMfaConfiguration()
-    {
-        var options = mfaOptions.Value;
-        return new MfaAuthenticationConfiguration
-        {
-            MaxActiveChallenges = options.MaxActiveChallenges,
-            MaxChallengesPerWindow = options.MaxChallengesPerWindow,
-            RateLimitWindowMinutes = options.RateLimitWindowMinutes,
-            ChallengeExpiryMinutes = options.ChallengeExpiryMinutes
         };
     }
 
@@ -473,23 +480,7 @@ public class MfaAuthenticationService(
     /// </summary>
     private static string? ExtractEmailFromMfaMethod(MfaMethod method)
     {
-        // For now, assume email is stored in the method's metadata or secret field
-        // In a real implementation, you might want to:
-        // 1. Store email in a separate field in MfaMethod
-        // 2. Extract from JSON metadata
-        // 3. Look up user email from user repository
-        return method.Metadata; // Placeholder - should contain email address
-    }
-
-    /// <summary>
-    /// Configuration class for MFA authentication settings.
-    /// </summary>
-    private class MfaAuthenticationConfiguration
-    {
-        public int MaxActiveChallenges { get; init; }
-        public int MaxChallengesPerWindow { get; init; }
-        public int RateLimitWindowMinutes { get; init; }
-        public int ChallengeExpiryMinutes { get; init; }
+        return method.Metadata;
     }
 
     #endregion

@@ -10,19 +10,17 @@ namespace Application.Services.Audit;
 /// </summary>
 public class AuditQueue : IAuditQueue
 {
-    private readonly Channel<CreateAuditEntryDto> _channel;
+    private readonly Channel<CreateAuditEntryDto> _channel = Channel.CreateUnbounded<CreateAuditEntryDto>(new UnboundedChannelOptions
+    {
+        SingleReader = true,  // Background service is the only reader
+        SingleWriter = false  // Multiple threads may write
+    });
     private int _count;
 
-    public AuditQueue()
-    {
-        // Unbounded channel - we don't want to drop audit entries
-        // In production, consider bounded with a large capacity to prevent OOM
-        _channel = Channel.CreateUnbounded<CreateAuditEntryDto>(new UnboundedChannelOptions
-        {
-            SingleReader = true,  // Background service is the only reader
-            SingleWriter = false  // Multiple threads may write
-        });
-    }
+    // Unbounded channel - we don't want to drop audit entries
+    // In production, consider bounded with a large capacity to prevent OOM
+    // Background service is the only reader
+    // Multiple threads may write
 
     /// <inheritdoc />
     public async ValueTask EnqueueAsync(CreateAuditEntryDto entry, CancellationToken cancellationToken = default)

@@ -1,6 +1,8 @@
+using Application.Common.Factories;
 using Application.Common.Utilities;
 using Application.DTOs.Mfa.WebAuthn;
 using Application.Interfaces.Services;
+using Application.Models;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 
@@ -15,7 +17,7 @@ public class MfaWebAuthnService(IWebAuthnService webAuthnService, ILogger<MfaWeb
     /// <summary>
     /// Starts the WebAuthn credential registration process for a user.
     /// </summary>
-    public async Task<object> StartRegistrationAsync(ClaimsPrincipal user, StartRegistrationDto request)
+    public async Task<ServiceResponse<WebAuthnRegistrationOptions>> StartRegistrationAsync(ClaimsPrincipal user, StartRegistrationDto request)
     {
         var userId = RoleUtility.GetUserIdFromClaims(user);
         var userName = RoleUtility.GetUserNameFromClaim(user);
@@ -31,18 +33,16 @@ public class MfaWebAuthnService(IWebAuthnService webAuthnService, ILogger<MfaWeb
 
         if (!result.Success)
         {
-            logger.LogWarning("Failed to start WebAuthn registration for user {UserId}: {Error}", userId, result.ErrorMessage);
-            throw new InvalidOperationException(result.ErrorMessage);
+            logger.LogWarning("Failed to start WebAuthn registration for user {UserId}: {Error}", userId, result.Message);
         }
 
-        logger.LogInformation("WebAuthn registration started successfully for user {UserId}", userId);
-        return result.Options!;
+        return result;
     }
 
     /// <summary>
     /// Completes the WebAuthn credential registration process.
     /// </summary>
-    public async Task<object> CompleteRegistrationAsync(ClaimsPrincipal user, CompleteRegistrationDto request, string? ipAddress, string? userAgent)
+    public async Task<ServiceResponse<WebAuthnRegistrationResultDto>> CompleteRegistrationAsync(ClaimsPrincipal user, CompleteRegistrationDto request, string? ipAddress, string? userAgent)
     {
         var userId = RoleUtility.GetUserIdFromClaims(user);
 
@@ -72,23 +72,16 @@ public class MfaWebAuthnService(IWebAuthnService webAuthnService, ILogger<MfaWeb
 
         if (!result.Success)
         {
-            logger.LogWarning("Failed to complete WebAuthn registration for user {UserId}: {Error}", userId, result.ErrorMessage);
-            throw new InvalidOperationException(result.ErrorMessage);
+            logger.LogWarning("Failed to complete WebAuthn registration for user {UserId}: {Error}", userId, result.Message);
         }
 
-        logger.LogInformation("WebAuthn registration completed successfully for user {UserId}, credential {CredentialId}", userId, result.CredentialId);
-
-        return new
-        {
-            credentialId = result.CredentialId,
-            message = "WebAuthn credential registered successfully"
-        };
+        return result;
     }
 
     /// <summary>
     /// Starts the WebAuthn authentication process for a user.
     /// </summary>
-    public async Task<object> StartAuthenticationAsync(ClaimsPrincipal user)
+    public async Task<ServiceResponse<WebAuthnAuthenticationOptions>> StartAuthenticationAsync(ClaimsPrincipal user)
     {
         var userId = RoleUtility.GetUserIdFromClaims(user);
 
@@ -98,18 +91,16 @@ public class MfaWebAuthnService(IWebAuthnService webAuthnService, ILogger<MfaWeb
 
         if (!result.Success)
         {
-            logger.LogWarning("Failed to start WebAuthn authentication for user {UserId}: {Error}", userId, result.ErrorMessage);
-            throw new InvalidOperationException(result.ErrorMessage);
+            logger.LogWarning("Failed to start WebAuthn authentication for user {UserId}: {Error}", userId, result.Message);
         }
 
-        logger.LogInformation("WebAuthn authentication started successfully for user {UserId}", userId);
-        return result.Options!;
+        return result;
     }
 
     /// <summary>
     /// Completes the WebAuthn authentication process.
     /// </summary>
-    public async Task<object> CompleteAuthenticationAsync(CompleteAuthenticationDto request)
+    public async Task<ServiceResponse<WebAuthnAuthenticationResultDto>> CompleteAuthenticationAsync(CompleteAuthenticationDto request)
     {
         logger.LogInformation("Completing WebAuthn authentication for credential {CredentialId}", request.CredentialId);
 
@@ -135,32 +126,31 @@ public class MfaWebAuthnService(IWebAuthnService webAuthnService, ILogger<MfaWeb
 
         if (!result.Success)
         {
-            logger.LogWarning("Failed to complete WebAuthn authentication for credential {CredentialId}: {Error}", request.CredentialId, result.ErrorMessage);
-            throw new InvalidOperationException(result.ErrorMessage);
+            logger.LogWarning("Failed to complete WebAuthn authentication for credential {CredentialId}: {Error}", request.CredentialId, result.Message);
         }
 
-        logger.LogInformation("WebAuthn authentication completed successfully for user {UserId}, credential {CredentialId}", result.UserId, result.CredentialId);
-
-        return new
-        {
-            userId = result.UserId,
-            credentialId = result.CredentialId,
-            message = "WebAuthn authentication successful"
-        };
+        return result;
     }
 
     /// <summary>
     /// Gets all WebAuthn credentials for a user.
     /// </summary>
-    public async Task<IEnumerable<WebAuthnCredentialDto>> GetUserCredentialsAsync(ClaimsPrincipal user)
+    public async Task<ServiceResponse<IEnumerable<WebAuthnCredentialDto>>> GetUserCredentialsAsync(ClaimsPrincipal user)
     {
         var userId = RoleUtility.GetUserIdFromClaims(user);
 
         logger.LogDebug("Getting WebAuthn credentials for user {UserId}", userId);
 
-        var credentials = await webAuthnService.GetUserCredentialsAsync(userId);
+        var result = await webAuthnService.GetUserCredentialsAsync(userId);
 
-        return credentials.Select(c => new WebAuthnCredentialDto
+        if (!result.Success)
+        {
+            logger.LogWarning("Failed to get WebAuthn credentials for user {UserId}: {Error}", userId, result.Message);
+            return ServiceResponseFactory.Error<IEnumerable<WebAuthnCredentialDto>>(result.Message, result.Status);
+        }
+
+        // Map WebAuthnCredentialInfo to WebAuthnCredentialDto
+        var credentialDtos = result.Data!.Select(c => new WebAuthnCredentialDto
         {
             Id = c.Id,
             Name = c.Name,
@@ -170,52 +160,45 @@ public class MfaWebAuthnService(IWebAuthnService webAuthnService, ILogger<MfaWeb
             LastUsedAt = c.LastUsedAt,
             IsActive = c.IsActive
         });
+
+        return ServiceResponseFactory.Success(credentialDtos);
     }
 
     /// <summary>
     /// Removes a WebAuthn credential for a user.
     /// </summary>
-    public async Task<object> RemoveCredentialAsync(ClaimsPrincipal user, Guid credentialId)
+    public async Task<ServiceResponse<bool>> RemoveCredentialAsync(ClaimsPrincipal user, Guid credentialId)
     {
         var userId = RoleUtility.GetUserIdFromClaims(user);
 
         logger.LogInformation("Removing WebAuthn credential {CredentialId} for user {UserId}", credentialId, userId);
 
-        var removed = await webAuthnService.RemoveCredentialAsync(userId, credentialId);
+        var result = await webAuthnService.RemoveCredentialAsync(userId, credentialId);
 
-        if (!removed)
+        if (!result.Success)
         {
-            logger.LogWarning("WebAuthn credential {CredentialId} not found for user {UserId}", credentialId, userId);
-            throw new InvalidOperationException("The specified credential was not found or does not belong to this user");
+            logger.LogWarning("Failed to remove WebAuthn credential {CredentialId} for user {UserId}: {Error}", credentialId, userId, result.Message);
         }
 
-        logger.LogInformation("WebAuthn credential {CredentialId} removed successfully for user {UserId}", credentialId, userId);
-
-        return new { message = "Credential removed successfully" };
+        return result;
     }
 
     /// <summary>
     /// Updates the name of a WebAuthn credential.
     /// </summary>
-    public async Task<object> UpdateCredentialNameAsync(ClaimsPrincipal user, Guid credentialId, UpdateCredentialNameDto request)
+    public async Task<ServiceResponse<bool>> UpdateCredentialNameAsync(ClaimsPrincipal user, Guid credentialId, UpdateCredentialNameDto request)
     {
         var userId = RoleUtility.GetUserIdFromClaims(user);
 
         logger.LogInformation("Updating name for WebAuthn credential {CredentialId} for user {UserId}", credentialId, userId);
 
-        var updated = await webAuthnService.UpdateCredentialNameAsync(
-            userId,
-            credentialId,
-            request.Name);
+        var result = await webAuthnService.UpdateCredentialNameAsync(userId, credentialId, request.Name);
 
-        if (!updated)
+        if (!result.Success)
         {
-            logger.LogWarning("WebAuthn credential {CredentialId} not found for user {UserId}", credentialId, userId);
-            throw new InvalidOperationException("The specified credential was not found or does not belong to this user");
+            logger.LogWarning("Failed to update name for WebAuthn credential {CredentialId} for user {UserId}: {Error}", credentialId, userId, result.Message);
         }
 
-        logger.LogInformation("WebAuthn credential {CredentialId} name updated successfully for user {UserId}", credentialId, userId);
-
-        return new { message = "Credential name updated successfully" };
+        return result;
     }
 }

@@ -1,5 +1,8 @@
+using Application.Common.Factories;
+using Application.DTOs.Mfa.WebAuthn;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
+using Application.Models;
 using Domain.Entities.Security;
 using Fido2NetLib;
 using Fido2NetLib.Objects;
@@ -21,7 +24,7 @@ public class WebAuthnService(
     ILogger<WebAuthnService> logger) : IWebAuthnService
 {
     /// <inheritdoc />
-    public async Task<WebAuthnRegistrationResult> StartRegistrationAsync(
+    public async Task<ServiceResponse<WebAuthnRegistrationOptions>> StartRegistrationAsync(
         Guid userId,
         Guid mfaMethodId,
         string userName,
@@ -78,17 +81,17 @@ public class WebAuthnService(
 
             logger.LogInformation("WebAuthn registration started for user {UserId}", userId);
 
-            return WebAuthnRegistrationResult.Successful(MapToRegistrationOptions(options));
+            return ServiceResponseFactory.Success(MapToRegistrationOptions(options));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error starting WebAuthn registration for user {UserId}", userId);
-            return WebAuthnRegistrationResult.Failed("Failed to start registration process");
+            return ServiceResponseFactory.Error<WebAuthnRegistrationOptions>("Failed to start registration process");
         }
     }
 
     /// <inheritdoc />
-    public async Task<WebAuthnRegistrationCompletionResult> CompleteRegistrationAsync(
+    public async Task<ServiceResponse<WebAuthnRegistrationResultDto>> CompleteRegistrationAsync(
         Guid userId,
         Guid mfaMethodId,
         string challenge,
@@ -104,7 +107,7 @@ public class WebAuthnService(
 
         if (string.IsNullOrEmpty(json))
         {
-            return WebAuthnRegistrationCompletionResult.Failed("Invalid or expired challenge");
+            return ServiceResponseFactory.Error<WebAuthnRegistrationResultDto>("Invalid or expired challenge");
         }
 
         var storedChallenge = JsonSerializer.Deserialize<StoredRegistrationChallenge>(json);
@@ -114,7 +117,7 @@ public class WebAuthnService(
         if (storedChallenge?.Options == null)
         {
             logger.LogWarning("Invalid stored challenge data for user {UserId}", userId);
-            return WebAuthnRegistrationCompletionResult.Failed("Invalid challenge data");
+            return ServiceResponseFactory.Error<WebAuthnRegistrationResultDto>("Invalid challenge data");
         }
 
         try
@@ -141,7 +144,7 @@ public class WebAuthnService(
             if (success.Status != "ok" || success.Result == null)
             {
                 logger.LogWarning("WebAuthn registration failed for user {UserId}: {Error}", userId, success.ErrorMessage);
-                return WebAuthnRegistrationCompletionResult.Failed(success.ErrorMessage ?? "Registration verification failed");
+                return ServiceResponseFactory.Error<WebAuthnRegistrationResultDto>(success.ErrorMessage ?? "Registration verification failed");
             }
 
             // Extract credential information
@@ -151,7 +154,7 @@ public class WebAuthnService(
             // Check if credential already exists (double check)
             if (await credentialRepository.CredentialExistsAsync(credentialIdBase64, cancellationToken))
             {
-                return WebAuthnRegistrationCompletionResult.Failed("Credential already registered");
+                return ServiceResponseFactory.Error<WebAuthnRegistrationResultDto>("Credential already registered");
             }
 
             // Determine authenticator type and transports
@@ -179,17 +182,20 @@ public class WebAuthnService(
             logger.LogInformation("WebAuthn registration completed for user {UserId}, credential {CredentialId}",
                 userId, credential.Id);
 
-            return WebAuthnRegistrationCompletionResult.Successful(credential.Id);
+            return ServiceResponseFactory.Success(new WebAuthnRegistrationResultDto
+            {
+                CredentialId = credential.Id
+            }, "WebAuthn credential registered successfully");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error completing WebAuthn registration for user {UserId}", userId);
-            return WebAuthnRegistrationCompletionResult.Failed("Failed to complete registration");
+            return ServiceResponseFactory.Error<WebAuthnRegistrationResultDto>("Failed to complete registration");
         }
     }
 
     /// <inheritdoc />
-    public async Task<WebAuthnAuthenticationResult> StartAuthenticationAsync(
+    public async Task<ServiceResponse<WebAuthnAuthenticationOptions>> StartAuthenticationAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
@@ -199,7 +205,7 @@ public class WebAuthnService(
             var credentials = await credentialRepository.GetActiveByUserIdAsync(userId, cancellationToken);
             if (credentials.Count == 0)
             {
-                return WebAuthnAuthenticationResult.Failed("No registered credentials found");
+                return ServiceResponseFactory.Error<WebAuthnAuthenticationOptions>("No registered credentials found");
             }
 
             // Create allowed credentials list
@@ -231,17 +237,17 @@ public class WebAuthnService(
 
             logger.LogInformation("WebAuthn authentication started for user {UserId}", userId);
 
-            return WebAuthnAuthenticationResult.Successful(MapToAuthenticationOptions(options));
+            return ServiceResponseFactory.Success(MapToAuthenticationOptions(options));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error starting WebAuthn authentication for user {UserId}", userId);
-            return WebAuthnAuthenticationResult.Failed("Failed to start authentication process");
+            return ServiceResponseFactory.Error<WebAuthnAuthenticationOptions>("Failed to start authentication process");
         }
     }
 
     /// <inheritdoc />
-    public async Task<WebAuthnAuthenticationCompletionResult> CompleteAuthenticationAsync(
+    public async Task<ServiceResponse<WebAuthnAuthenticationResultDto>> CompleteAuthenticationAsync(
         string credentialId,
         string challenge,
         WebAuthnAssertionResponse assertionResponse,
@@ -253,7 +259,7 @@ public class WebAuthnService(
 
         if (string.IsNullOrEmpty(json))
         {
-            return WebAuthnAuthenticationCompletionResult.Failed("invalid or expired challenge");
+            return ServiceResponseFactory.Error<WebAuthnAuthenticationResultDto>("Invalid or expired challenge");
         }
 
         var storedChallenge = JsonSerializer.Deserialize<StoredAuthenticationChallenge>(json);
@@ -263,7 +269,7 @@ public class WebAuthnService(
         if (storedChallenge?.Options == null)
         {
             logger.LogWarning("Invalid stored authentication challenge data");
-            return WebAuthnAuthenticationCompletionResult.Failed("Invalid challenge data");
+            return ServiceResponseFactory.Error<WebAuthnAuthenticationResultDto>("Invalid challenge data");
         }
 
         try
@@ -272,7 +278,7 @@ public class WebAuthnService(
             var credential = await credentialRepository.GetByCredentialIdAsync(credentialId, cancellationToken);
             if (credential == null || !credential.CanAuthenticate() || credential.UserId != storedChallenge.UserId)
             {
-                return WebAuthnAuthenticationCompletionResult.Failed("Invalid credential");
+                return ServiceResponseFactory.Error<WebAuthnAuthenticationResultDto>("Invalid credential");
             }
 
             // Convert our response to Fido2 format
@@ -307,7 +313,7 @@ public class WebAuthnService(
             {
                 logger.LogWarning("WebAuthn authentication failed for credential {CredentialId}: {Error}",
                     credential.Id, verificationResult.ErrorMessage);
-                return WebAuthnAuthenticationCompletionResult.Failed(
+                return ServiceResponseFactory.Error<WebAuthnAuthenticationResultDto>(
                     verificationResult.ErrorMessage ?? "Authentication verification failed");
             }
 
@@ -317,7 +323,7 @@ public class WebAuthnService(
                 logger.LogWarning("Potential cloned authenticator detected for credential {CredentialId}. " +
                     "Previous count: {PreviousCount}, New count: {NewCount}",
                     credential.Id, credential.SignCount, verificationResult.Counter);
-                return WebAuthnAuthenticationCompletionResult.Failed("Security error: potential cloned authenticator");
+                return ServiceResponseFactory.Error<WebAuthnAuthenticationResultDto>("Security error: potential cloned authenticator");
             }
 
             credential.RecordUsage();
@@ -325,23 +331,27 @@ public class WebAuthnService(
             logger.LogInformation("WebAuthn authentication completed for user {UserId}, credential {CredentialId}",
                 credential.UserId, credential.Id);
 
-            return WebAuthnAuthenticationCompletionResult.Successful(credential.UserId, credential.Id);
+            return ServiceResponseFactory.Success(new WebAuthnAuthenticationResultDto
+            {
+                UserId = credential.UserId,
+                CredentialId = credential.Id
+            }, "WebAuthn authentication successful");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error completing WebAuthn authentication for credential {CredentialId}", credentialId);
-            return WebAuthnAuthenticationCompletionResult.Failed("Failed to complete authentication");
+            return ServiceResponseFactory.Error<WebAuthnAuthenticationResultDto>("Failed to complete authentication");
         }
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<WebAuthnCredentialInfo>> GetUserCredentialsAsync(
+    public async Task<ServiceResponse<IReadOnlyList<WebAuthnCredentialInfo>>> GetUserCredentialsAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
         var credentials = await credentialRepository.GetActiveByUserIdAsync(userId, cancellationToken);
 
-        return credentials.Select(c => new WebAuthnCredentialInfo
+        var credentialInfos = credentials.Select(c => new WebAuthnCredentialInfo
         {
             Id = c.Id,
             Name = c.Name ?? "WebAuthn Credential",
@@ -351,10 +361,12 @@ public class WebAuthnService(
             LastUsedAt = c.LastUsedAt,
             IsActive = c.IsActive
         }).ToList();
+
+        return ServiceResponseFactory.Success<IReadOnlyList<WebAuthnCredentialInfo>>(credentialInfos);
     }
 
     /// <inheritdoc />
-    public async Task<bool> RemoveCredentialAsync(
+    public async Task<ServiceResponse<bool>> RemoveCredentialAsync(
         Guid userId,
         Guid credentialId,
         CancellationToken cancellationToken = default)
@@ -364,22 +376,22 @@ public class WebAuthnService(
             var credential = await credentialRepository.GetByIdAsync(credentialId, cancellationToken);
             if (credential == null || credential.UserId != userId)
             {
-                return false;
+                return ServiceResponseFactory.NotFound<bool>("The specified credential was not found or does not belong to this user");
             }
 
             credentialRepository.Remove(credential);
             logger.LogInformation("WebAuthn credential {CredentialId} removed for user {UserId}", credentialId, userId);
-            return true;
+            return ServiceResponseFactory.Success(true, "Credential removed successfully");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error removing WebAuthn credential {CredentialId} for user {UserId}", credentialId, userId);
-            return false;
+            return ServiceResponseFactory.Error<bool>("Failed to remove credential");
         }
     }
 
     /// <inheritdoc />
-    public async Task<bool> UpdateCredentialNameAsync(
+    public async Task<ServiceResponse<bool>> UpdateCredentialNameAsync(
         Guid userId,
         Guid credentialId,
         string name,
@@ -390,17 +402,17 @@ public class WebAuthnService(
             var credential = await credentialRepository.GetByIdAsync(credentialId, cancellationToken);
             if (credential == null || credential.UserId != userId)
             {
-                return false;
+                return ServiceResponseFactory.NotFound<bool>("The specified credential was not found or does not belong to this user");
             }
 
             credential.UpdateName(name);
             logger.LogInformation("WebAuthn credential {CredentialId} name updated for user {UserId}", credentialId, userId);
-            return true;
+            return ServiceResponseFactory.Success(true, "Credential name updated successfully");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error updating WebAuthn credential {CredentialId} name for user {UserId}", credentialId, userId);
-            return false;
+            return ServiceResponseFactory.Error<bool>("Failed to update credential name");
         }
     }
 
@@ -411,8 +423,8 @@ public class WebAuthnService(
     /// </summary>
     private async Task<bool> IsCredentialIdUniqueToUserAsync(IsCredentialIdUniqueToUserParams args, CancellationToken cancellationToken = default)
     {
-        var credentialId = Convert.ToBase64String(args.CredentialId);
-        var existingCredential = await credentialRepository.GetByCredentialIdAsync(credentialId, cancellationToken);
+        var credentialIdStr = Convert.ToBase64String(args.CredentialId);
+        var existingCredential = await credentialRepository.GetByCredentialIdAsync(credentialIdStr, cancellationToken);
 
         // For now, simplified check - just ensure credential doesn't already exist
         return existingCredential == null;
@@ -423,8 +435,8 @@ public class WebAuthnService(
     /// </summary>
     private async Task<bool> IsUserHandleOwnerOfCredentialIdAsync(IsUserHandleOwnerOfCredentialIdParams args, CancellationToken cancellationToken = default)
     {
-        var credentialId = Convert.ToBase64String(args.CredentialId);
-        var credential = await credentialRepository.GetByCredentialIdAsync(credentialId, cancellationToken);
+        var credentialIdStr = Convert.ToBase64String(args.CredentialId);
+        var credential = await credentialRepository.GetByCredentialIdAsync(credentialIdStr, cancellationToken);
 
         // For now, simplified check - just ensure credential exists
         return credential != null;

@@ -1,6 +1,5 @@
 using Application.DTOs.Mfa;
 using Application.Validators;
-using FluentAssertions;
 using FluentValidation.TestHelper;
 using Xunit;
 

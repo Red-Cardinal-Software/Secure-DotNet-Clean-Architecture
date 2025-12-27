@@ -176,11 +176,6 @@ public class MfaConfigurationServiceTests
         var user = new AppUserBuilder().WithEmail("test@user.org").Build();
         var userId = user.Id;
         var method = MfaMethod.CreateTotp(userId, "secret");
-        var recoveryCodes = new List<MfaRecoveryCode>
-        {
-            MfaRecoveryCode.Create(method.Id, "hash1", "CODE1"),
-            MfaRecoveryCode.Create(method.Id, "hash2", "CODE2")
-        };
         var verifyDto = new VerifyMfaSetupDto { Code = "123456", Name = "My Authenticator" };
 
         _mfaMethodRepository.Setup(x => x.GetByUserAndTypeAsync(userId, MfaType.Totp, It.IsAny<CancellationToken>()))
@@ -351,8 +346,8 @@ public class MfaConfigurationServiceTests
         result.Data.TotalMethods.Should().Be(2);
         result.Data.EnabledMethods.Should().Be(1);
         result.Data.Methods.Should().HaveCount(2);
-        result.Data.AvailableTypes.Should().Contain(MfaType.WebAuthn.ToString());
-        result.Data.AvailableTypes.Should().Contain(MfaType.Push.ToString());
+        result.Data.AvailableTypes.Should().Contain(nameof(MfaType.WebAuthn));
+        result.Data.AvailableTypes.Should().Contain(nameof(MfaType.Push));
     }
 
     [Fact]

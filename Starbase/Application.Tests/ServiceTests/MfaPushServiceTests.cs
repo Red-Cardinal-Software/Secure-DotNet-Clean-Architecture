@@ -1,11 +1,8 @@
 using Application.Common.Configuration;
-using Application.Common.Factories;
 using Application.DTOs.Mfa;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Providers;
 using Application.Interfaces.Repositories;
-using Application.Interfaces.Services;
-using Application.Models;
 using Application.Services.Mfa;
 using AutoMapper;
 using Domain.Entities.Security;
@@ -23,24 +20,19 @@ namespace Application.Tests.ServiceTests;
 /// </summary>
 public class MfaPushServiceTests
 {
-    private readonly Mock<IUnitOfWork> _unitOfWork;
     private readonly Mock<IMfaPushRepository> _mfaRepository;
     private readonly Mock<IMfaMethodRepository> _mfaMethodRepository;
     private readonly Mock<IPushNotificationProvider> _pushProvider;
-    private readonly Mock<IMapper> _mapper;
-    private readonly Mock<ILogger<MfaPushService>> _logger;
-    private readonly IOptions<PushMfaOptions> _pushMfaOptions;
-    private readonly IOptions<AppOptions> _appOptions;
     private readonly MfaPushService _service;
 
     public MfaPushServiceTests()
     {
-        _unitOfWork = new Mock<IUnitOfWork>();
+        var unitOfWork = new Mock<IUnitOfWork>();
         _mfaRepository = new Mock<IMfaPushRepository>();
         _mfaMethodRepository = new Mock<IMfaMethodRepository>();
         _pushProvider = new Mock<IPushNotificationProvider>();
-        _mapper = new Mock<IMapper>();
-        _logger = new Mock<ILogger<MfaPushService>>();
+        var mapper = new Mock<IMapper>();
+        var logger = new Mock<ILogger<MfaPushService>>();
 
         var pushOptions = new PushMfaOptions
         {
@@ -50,7 +42,7 @@ public class MfaPushServiceTests
             CleanupAgeHours = 24,
             Provider = "Mock"
         };
-        _pushMfaOptions = Options.Create(pushOptions);
+        var pushMfaOptions = Options.Create(pushOptions);
 
         var appOptions = new AppOptions
         {
@@ -59,10 +51,10 @@ public class MfaPushServiceTests
             JwtIssuer = "test-issuer",
             JwtAudience = "test-audience"
         };
-        _appOptions = Options.Create(appOptions);
+        var appOptions1 = Options.Create(appOptions);
 
         // Setup mapper to return a simple DTO
-        _mapper.Setup(x => x.Map<MfaPushDeviceDto>(It.IsAny<MfaPushDevice>()))
+        mapper.Setup(x => x.Map<MfaPushDeviceDto>(It.IsAny<MfaPushDevice>()))
             .Returns((MfaPushDevice d) => new MfaPushDeviceDto
             {
                 Id = d.Id,
@@ -75,7 +67,7 @@ public class MfaPushServiceTests
                 TrustScore = d.TrustScore
             });
 
-        _mapper.Setup(x => x.Map<List<MfaPushDeviceDto>>(It.IsAny<IEnumerable<MfaPushDevice>>()))
+        mapper.Setup(x => x.Map<List<MfaPushDeviceDto>>(It.IsAny<IEnumerable<MfaPushDevice>>()))
             .Returns((IEnumerable<MfaPushDevice> devices) => devices.Select(d => new MfaPushDeviceDto
             {
                 Id = d.Id,
@@ -89,14 +81,14 @@ public class MfaPushServiceTests
             }).ToList());
 
         _service = new MfaPushService(
-            _unitOfWork.Object,
+            unitOfWork.Object,
             _mfaRepository.Object,
             _mfaMethodRepository.Object,
             _pushProvider.Object,
-            _mapper.Object,
-            _pushMfaOptions,
-            _appOptions,
-            _logger.Object);
+            mapper.Object,
+            pushMfaOptions,
+            appOptions1,
+            logger.Object);
     }
 
     #region RegisterDeviceAsync Tests
@@ -225,7 +217,7 @@ public class MfaPushServiceTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var mfaMethodId = Guid.NewGuid();
+        Guid.NewGuid();
         var existingMethod = MfaMethod.CreatePush(userId, "Push");
 
         var request = new RegisterPushDeviceRequest
@@ -533,7 +525,7 @@ public class MfaPushServiceTests
         // Arrange
         var challengeId = Guid.NewGuid();
         var challenge = new MfaPushChallenge(
-            Guid.NewGuid(), Guid.NewGuid(), "correct-session", "192.168.1.1", "Chrome", 5);
+            Guid.NewGuid(), Guid.NewGuid(), "correct-session", "192.168.1.1", "Chrome");
 
         _mfaRepository.Setup(x => x.GetPushChallengeAsync(challengeId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(challenge);
@@ -553,7 +545,7 @@ public class MfaPushServiceTests
         var challengeId = Guid.NewGuid();
         var sessionId = "session-123";
         var challenge = new MfaPushChallenge(
-            Guid.NewGuid(), Guid.NewGuid(), sessionId, "192.168.1.1", "Chrome", 5);
+            Guid.NewGuid(), Guid.NewGuid(), sessionId, "192.168.1.1", "Chrome");
 
         // Force expiration by reflection
         var expiresAtProperty = challenge.GetType().GetProperty("ExpiresAt");
@@ -586,7 +578,7 @@ public class MfaPushServiceTests
         var challengeId = Guid.NewGuid();
         var sessionId = "session-123";
         var challenge = new MfaPushChallenge(
-            Guid.NewGuid(), Guid.NewGuid(), sessionId, "192.168.1.1", "Chrome", 5);
+            Guid.NewGuid(), Guid.NewGuid(), sessionId, "192.168.1.1", "Chrome");
 
         // Set status using appropriate method based on the status
         switch (status)
@@ -652,7 +644,7 @@ public class MfaPushServiceTests
         var wrongDeviceId = Guid.NewGuid();
 
         var challenge = new MfaPushChallenge(
-            Guid.NewGuid(), correctDeviceId, "session", "192.168.1.1", "Chrome", 5);
+            Guid.NewGuid(), correctDeviceId, "session", "192.168.1.1", "Chrome");
 
         var response = new PushChallengeResponse
         {
@@ -679,7 +671,7 @@ public class MfaPushServiceTests
         var challengeId = Guid.NewGuid();
         var deviceId = Guid.NewGuid();
         var challenge = new MfaPushChallenge(
-            Guid.NewGuid(), deviceId, "session", "192.168.1.1", "Chrome", 5);
+            Guid.NewGuid(), deviceId, "session", "192.168.1.1", "Chrome");
 
         var response = new PushChallengeResponse
         {
@@ -711,7 +703,7 @@ public class MfaPushServiceTests
         var userId = Guid.NewGuid();
 
         var challenge = new MfaPushChallenge(
-            userId, deviceId, "session", "192.168.1.1", "Chrome", 5);
+            userId, deviceId, "session", "192.168.1.1", "Chrome");
 
         var device = CreateTestDevice(userId, deviceId);
 
@@ -746,7 +738,7 @@ public class MfaPushServiceTests
         var userId = Guid.NewGuid();
 
         var challenge = new MfaPushChallenge(
-            userId, deviceId, "session", "192.168.1.1", "Chrome", 5);
+            userId, deviceId, "session", "192.168.1.1", "Chrome");
 
         var device = CreateTestDevice(userId, deviceId);
 
@@ -781,7 +773,7 @@ public class MfaPushServiceTests
         var userId = Guid.NewGuid();
 
         var challenge = new MfaPushChallenge(
-            userId, deviceId, "session", "192.168.1.1", "Chrome", 5);
+            userId, deviceId, "session", "192.168.1.1", "Chrome");
 
         var device = CreateTestDevice(userId, deviceId);
 
