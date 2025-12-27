@@ -77,6 +77,23 @@ curl http://localhost:5000/api/health
 {"status":"Healthy","timestamp":"2024-01-15T10:30:00.000Z"}
 ```
 
+## Initial Setup
+
+On first run, create an admin user via the one-time setup endpoint:
+
+```bash
+curl -X POST http://localhost:5000/api/v1/setup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@example.com",
+    "password": "YourSecurePassword123!",
+    "firstName": "Admin",
+    "lastName": "User"
+  }'
+```
+
+This returns JWT tokens so you're immediately logged in. The endpoint only works once—after setup it returns 404.
+
 ## Development vs Production
 
 The template behaves differently based on environment:

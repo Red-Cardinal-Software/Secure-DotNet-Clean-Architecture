@@ -22,6 +22,7 @@ using Application.Services.Email;
 using Application.Services.Audit;
 using Application.Services.Mfa;
 using Application.Services.PasswordReset;
+using Application.Services.Setup;
 using Application.Validators;
 using AutoMapper;
 using FluentValidation;
@@ -119,7 +120,10 @@ public static class ServiceCollectionExtensions
         if (options.IncludeApiVersioning) services.AddApiVersioningConfiguration();
         if (options.IncludeCaching)
         {
-            // Support both local (memory) and Cloud (redis) automatically
+            // IMemoryCache for in-process caching (used by SetupService, etc.)
+            services.AddMemoryCache();
+
+            // IDistributedCache: Support both local (memory) and Cloud (redis) automatically
             var redisConnection = configuration.GetConnectionString("Redis");
 
             if (!string.IsNullOrWhiteSpace(redisConnection))
@@ -136,7 +140,6 @@ public static class ServiceCollectionExtensions
                 // Implements the IDistributedCache so your services don't need to change.
                 services.AddDistributedMemoryCache();
             }
-
         }
 
         return services;
@@ -167,6 +170,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMfaPushRepository, MfaPushRepository>();
         services.AddScoped<IPushNotificationProvider, MockPushNotificationProvider>();
         services.AddScoped<IAuditLedgerRepository, AuditLedgerRepository>();
+        services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 
         return services;
     }
@@ -211,6 +215,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITotpProvider, TotpProvider>();
         services.AddScoped<IMfaPushService, MfaPushService>();
         services.AddScoped<IAuditLedger, AuditLedgerService>();
+        services.AddScoped<ISetupService, SetupService>();
 
         // Audit archive services
         services.AddScoped<IAuditArchiver, AuditArchiverService>();

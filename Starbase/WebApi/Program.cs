@@ -17,6 +17,7 @@ using DependencyInjectionConfiguration;
 using Infrastructure.Persistence;
 using Infrastructure.Web.Middleware;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -208,6 +209,24 @@ if (app.Environment.IsDevelopment())
     db.Database.Migrate();
     Log.Information("Database migrated successfully");
 }
+
+// SECURITY: Short-circuit setup endpoint after initial configuration
+// This runs before all other middleware to minimize attack surface for DDoS
+// Once setup is complete, requests to /setup are rejected with minimal processing
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api") &&
+        context.Request.Path.Value?.Contains("/setup", StringComparison.OrdinalIgnoreCase) == true)
+    {
+        var cache = context.RequestServices.GetRequiredService<IMemoryCache>();
+        if (cache.TryGetValue("SetupService:IsSetupComplete", out bool isComplete) && isComplete)
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+    }
+    await next();
+});
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
