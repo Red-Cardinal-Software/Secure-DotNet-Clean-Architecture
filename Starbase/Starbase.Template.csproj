@@ -8,7 +8,7 @@
     <Authors>Red Cardinal Software</Authors>
     <Description>A secure, production-ready .NET API template with JWT authentication, MFA, rate limiting, audit logging, and security headers. The "Rails moment" for secure .NET backends.</Description>
     <PackageTags>dotnet-new;templates;webapi;security;jwt;mfa;authentication;clean-architecture</PackageTags>
-    <PackageProjectUrl>https://github.com/Red-Cardinal-Software/Starbase</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/Red-Cardinal-Software/Secure-DotNet-Clean-Architecture</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 

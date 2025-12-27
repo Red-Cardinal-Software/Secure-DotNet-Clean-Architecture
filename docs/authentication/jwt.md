@@ -1,3 +1,9 @@
+---
+title: JWT & Refresh Tokens
+parent: Authentication
+nav_order: 1
+---
+
 # JWT & Refresh Tokens
 
 Starbase uses short-lived JWT access tokens paired with longer-lived refresh tokens for secure authentication.

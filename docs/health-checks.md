@@ -1,3 +1,8 @@
+---
+title: Health Checks
+nav_order: 7
+---
+
 # Health Checks
 
 Starbase includes production-ready health check endpoints designed for monitoring, load balancers, and container orchestration.

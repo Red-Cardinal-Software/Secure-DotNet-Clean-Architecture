@@ -1,3 +1,8 @@
+---
+title: Audit Logging
+nav_order: 6
+---
+
 # Audit Logging
 
 Starbase includes an enterprise-grade audit logging system designed for compliance, security monitoring, and forensic analysis.

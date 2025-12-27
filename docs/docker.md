@@ -1,3 +1,8 @@
+---
+title: Docker
+nav_order: 9
+---
+
 # Docker Support
 
 Starbase includes production-ready Docker configuration for containerized deployments.

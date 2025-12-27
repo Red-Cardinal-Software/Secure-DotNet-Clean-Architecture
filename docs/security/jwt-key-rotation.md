@@ -1,3 +1,9 @@
+---
+title: JWT Key Rotation
+parent: Security
+nav_order: 3
+---
+
 # JWT Signing Key Rotation
 
 Starbase supports automatic JWT signing key rotation with zero-downtime token validation. Keys are stored in cloud secrets managers (Azure Key Vault, AWS Secrets Manager, or GCP Secret Manager) and rotated on a configurable schedule.

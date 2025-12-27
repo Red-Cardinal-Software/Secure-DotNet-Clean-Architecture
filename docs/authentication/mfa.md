@@ -1,3 +1,9 @@
+---
+title: Multi-Factor Authentication
+parent: Authentication
+nav_order: 2
+---
+
 # Multi-Factor Authentication
 
 Starbase includes a comprehensive MFA system supporting multiple authentication methods.

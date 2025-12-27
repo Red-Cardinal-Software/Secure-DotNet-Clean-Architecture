@@ -1,3 +1,9 @@
+---
+title: WebAuthn & Passkeys
+parent: Authentication
+nav_order: 3
+---
+
 # WebAuthn & Passkeys
 
 Starbase includes production-ready WebAuthn/FIDO2 support using the Fido2.NetLib library.

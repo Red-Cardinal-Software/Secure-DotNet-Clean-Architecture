@@ -1,8 +1,8 @@
 site_name: Starbase
 site_description: A Secure .NET Clean Architecture Template
-site_url: https://red-cardinal-software.github.io/Starbase/
-repo_url: https://github.com/Red-Cardinal-Software/Starbase
-repo_name: Red-Cardinal-Software/Starbase
+site_url: https://red-cardinal-software.github.io/Secure-DotNet-Clean-Architecture/
+repo_url: https://github.com/Red-Cardinal-Software/Secure-DotNet-Clean-Architecture
+repo_name: Red-Cardinal-Software/Secure-DotNet-Clean-Architecture
 
 theme:
   name: material
@@ -63,4 +63,4 @@ nav:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/Red-Cardinal-Software/Starbase
+      link: https://github.com/Red-Cardinal-Software/Secure-DotNet-Clean-Architecture

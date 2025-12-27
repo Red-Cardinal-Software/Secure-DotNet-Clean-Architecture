@@ -1,3 +1,9 @@
+---
+title: Security Headers
+parent: Security
+nav_order: 2
+---
+
 # Security Headers
 
 Starbase includes security headers middleware that adds defense-in-depth protection against common web vulnerabilities.

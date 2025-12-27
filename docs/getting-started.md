@@ -1,3 +1,8 @@
+---
+title: Getting Started
+nav_order: 2
+---
+
 # Getting Started
 
 ## Prerequisites
@@ -11,7 +16,7 @@
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/Red-Cardinal-Software/Starbase.git
+git clone https://github.com/Red-Cardinal-Software/Secure-DotNet-Clean-Architecture.git
 cd Starbase
 ```
 

@@ -1,3 +1,9 @@
+---
+title: Rate Limiting
+parent: Security
+nav_order: 1
+---
+
 # Rate Limiting
 
 Starbase includes comprehensive rate limiting to protect against brute force attacks, credential stuffing, and API abuse using .NET's built-in `Microsoft.AspNetCore.RateLimiting` middleware.

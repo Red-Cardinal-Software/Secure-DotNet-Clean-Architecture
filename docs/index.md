@@ -1,3 +1,9 @@
+---
+title: Home
+layout: home
+nav_order: 1
+---
+
 # Starbase
 
 ## A Secure .NET Clean Architecture Template

@@ -1,3 +1,9 @@
+---
+title: Authentication
+nav_order: 4
+has_children: true
+---
+
 # Authentication Overview
 
 Starbase includes a comprehensive authentication system with multiple layers of security.

@@ -71,6 +71,19 @@ WebApi/           → Controllers, middleware, API config
 
 For detailed documentation on security features, MFA setup, audit logging, and more, visit the original template documentation at **[View Full Documentation →](https://red-cardinal-software.github.io/Secure-DotNet-Clean-Architecture/)**.
 
+## Need Help?
+
+Starbase is free and open source, but if you need help with implementation, customization, or security consulting, I'm available for hire.
+
+**Services offered:**
+- Custom feature development
+- Security audits and hardening
+- Architecture reviews
+- Integration assistance
+- Training and onboarding
+
+Contact: **james@redcardinalsoftware.com**
+
 ## License
 
 MIT License

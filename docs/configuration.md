@@ -1,3 +1,8 @@
+---
+title: Configuration
+nav_order: 3
+---
+
 # Configuration
 
 Starbase uses the standard ASP.NET Core configuration system with environment-specific overrides.

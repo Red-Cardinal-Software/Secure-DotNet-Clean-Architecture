@@ -1,3 +1,9 @@
+---
+title: Account Lockout
+parent: Authentication
+nav_order: 4
+---
+
 # Account Lockout
 
 Starbase includes a comprehensive account lockout system to protect against brute force attacks, credential stuffing, and unauthorized access attempts.

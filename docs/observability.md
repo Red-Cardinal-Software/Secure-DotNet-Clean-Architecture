@@ -1,3 +1,8 @@
+---
+title: Observability
+nav_order: 8
+---
+
 # Observability & Logging
 
 Starbase includes enterprise-grade observability with structured logging and distributed tracing.

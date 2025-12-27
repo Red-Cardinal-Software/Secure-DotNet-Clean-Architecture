@@ -1,3 +1,8 @@
+---
+title: Email MFA
+nav_order: 11
+---
+
 # Email MFA Configuration Guide
 
 ## Overview

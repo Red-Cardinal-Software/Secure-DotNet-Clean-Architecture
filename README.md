@@ -8,8 +8,8 @@ A secure, enterprise-ready .NET API template with Clean Architecture. Batteries 
 ## Quick Start
 
 ```bash
-# Install the template
-dotnet new install .
+# Install the template from NuGet
+dotnet new install Starbase
 
 # Create a new project
 dotnet new starbase -n MyCompanyApi
@@ -17,6 +17,28 @@ dotnet new starbase -n MyCompanyApi
 # Run it
 cd MyCompanyApi
 dotnet run --project WebApi
+```
+
+## Template Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-n, --name` | Project name | SecureApi |
+| `--DatabaseProvider` | Database: `SqlServer`, `PostgreSQL`, `Oracle` | SqlServer |
+| `--CloudProvider` | Secrets management: `None`, `Azure`, `AWS`, `GCP` | None |
+| `--IncludeDocker` | Include Docker files | true |
+
+### Examples
+
+```bash
+# Basic project
+dotnet new starbase -n MyApi
+
+# With PostgreSQL and Azure Key Vault
+dotnet new starbase -n MyApi --DatabaseProvider PostgreSQL --CloudProvider Azure
+
+# Without Docker files
+dotnet new starbase -n MyApi --IncludeDocker false
 ```
 
 ## What's Included
@@ -82,10 +104,19 @@ dotnet test Starbase/
 
 **Raise the security floor.** If a 3-person startup can ship with MFA, rate limiting, and proper audit logging, the world has better cybersecurity.
 
+## Need Help?
+
+Starbase is free and open source, but if you need help with implementation, customization, or security consulting, I'm available for hire.
+
+**Services offered:**
+- Custom feature development
+- Security audits and hardening
+- Architecture reviews
+- Integration assistance
+- Training and onboarding
+
+Contact: **james@redcardinalsoftware.com**
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-Built with assistance from Claude AI.

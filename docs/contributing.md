@@ -1,3 +1,8 @@
+---
+title: Contributing
+nav_order: 10
+---
+
 # Contributing
 
 Thank you for your interest in contributing to Starbase!
@@ -14,8 +19,8 @@ Thank you for your interest in contributing to Starbase!
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/starbase.git
-   cd starbase
+   git clone https://github.com/Red-Cardinal-Software/Secure-DotNet-Clean-Architecture.git
+   cd Secure-DotNet-Clean-Architecture
    ```
 
 2. Start dependencies:
