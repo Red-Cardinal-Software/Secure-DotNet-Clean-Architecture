@@ -11,6 +11,7 @@ using Application.Interfaces.Services;
 using Application.Logging;
 using Application.Models;
 using FluentValidation;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Services.AppUser;
 
@@ -24,7 +25,7 @@ public class AppUserService(
     IUnitOfWork unitOfWork,
     IAppUserMapper appUserMapper,
     IValidator<string> passwordValidator,
-    LogContextHelper<AppUserService> logger
+    ILogger<AppUserService> logger
     )
     : BaseAppService(unitOfWork), IAppUserService
 {
@@ -34,15 +35,12 @@ public class AppUserService(
 
         var usersDto = users.Select(appUserMapper.ToDto).ToList();
 
-        logger.InfoWithContext(
-            user,
-            new StructuredLogBuilder()
-                .SetAction(AppUserActions.GetUsers)
-                .SetStatus(LogStatuses.Success)
-                .SetTarget(AppUserTargets.Org(RoleUtility.GetOrgIdFromClaims(user)))
-                .SetEntity(nameof(AppUser))
-                .SetDetail($"Returned {usersDto.Count} users")
-            );
+        SecurityEvent.UserManagement(logger,
+            SecurityEvent.Type.Access,
+            "user-list",
+            SecurityEvent.Outcome.Success,
+            $"Retrieved {usersDto.Count} users",
+            user);
 
         return ServiceResponseFactory.Success(usersDto);
     }
@@ -55,43 +53,33 @@ public class AppUserService(
 
         if (userToDeactivate is null)
         {
-            logger.WarningWithContext(
-                user,
-                new StructuredLogBuilder()
-                    .SetAction(AppUserActions.DeactivateUser)
-                    .SetStatus(LogStatuses.Failure)
-                    .SetTarget(AppUserTargets.User(id))
-                    .SetEntity(nameof(AppUser))
-                    .SetDetail("No user found for the specified ID.")
-                );
+            SecurityEvent.UserManagement(logger,
+                SecurityEvent.Type.Change,
+                "user-deactivate",
+                SecurityEvent.Outcome.Failure,
+                $"User not found for deactivation: {id}",
+                user);
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.UserNotFound);
         }
 
         if (userToDeactivate.OrganizationId != requestingUserOrg)
         {
-            logger.CriticalWithContext(
-                user,
-                new StructuredLogBuilder()
-                    .SetType(LogTypes.Security.Threat)
-                    .SetAction(AppUserActions.DeactivateUser)
-                    .SetStatus(LogStatuses.Failure)
-                    .SetTarget(AppUserTargets.UserInOrg(userToDeactivate.Id, userToDeactivate.OrganizationId))
-                    .SetEntity(nameof(AppUser))
-                    .SetDetail("Unauthorized attempt to modify user in another organization")
-                );
+            SecurityEvent.Threat(logger, "user-deactivate",
+                $"Unauthorized cross-organization user deactivation attempt: {userToDeactivate.Id}",
+                reason: "User belongs to different organization",
+                user: user);
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.UserUnauthorized);
         }
 
         userToDeactivate.Deactivate();
 
-        logger.InfoWithContext(
+        SecurityEvent.UserManagement(logger,
+            SecurityEvent.Type.Change,
+            "user-deactivate",
+            SecurityEvent.Outcome.Success,
+            $"User deactivated: {id}",
             user,
-            new StructuredLogBuilder()
-                .SetAction(AppUserActions.DeactivateUser)
-                .SetStatus(LogStatuses.Success)
-                .SetTarget(AppUserTargets.UserInOrg(id, requestingUserOrg))
-                .SetEntity(nameof(AppUser))
-        );
+            targetUser: userToDeactivate.Username);
 
         return ServiceResponseFactory.Success(true);
     });
@@ -103,11 +91,12 @@ public class AppUserService(
 
             if (!validPasswordResult.IsValid)
             {
-                logger.WarningWithContext(user, new StructuredLogBuilder()
-                    .SetAction(AppUserActions.AddUser)
-                    .SetStatus(LogStatuses.Failure)
-                    .SetTarget(AppUserTargets.Org(RoleUtility.GetOrgIdFromClaims(user)))
-                    .SetEntity(nameof(AppUser)));
+                SecurityEvent.UserManagement(logger,
+                    SecurityEvent.Type.Creation,
+                    "user-create",
+                    SecurityEvent.Outcome.Failure,
+                    "User creation failed: invalid password",
+                    user);
 
                 return ServiceResponseFactory.Error<AppUserDto>(string.Join(", ", validPasswordResult.Errors.Select(e => e.ErrorMessage)));
             }
@@ -119,13 +108,13 @@ public class AppUserService(
 
             var newUserDto = appUserMapper.ToDto(newUserSavedEntity);
 
-            logger.InfoWithContext(
+            SecurityEvent.UserManagement(logger,
+                SecurityEvent.Type.Creation,
+                "user-create",
+                SecurityEvent.Outcome.Success,
+                $"User created: {newUserSavedEntity.Username}",
                 user,
-                new StructuredLogBuilder()
-                    .SetAction(AppUserActions.AddUser)
-                    .SetTarget(AppUserTargets.Org(requestingOrgId))
-                    .SetEntity(nameof(AppUser))
-                );
+                targetUser: newUserSavedEntity.Username);
 
             return ServiceResponseFactory.Success(newUserDto);
         });
@@ -133,35 +122,25 @@ public class AppUserService(
     public async Task<ServiceResponse<AppUserDto>> UpdateUserAsync(ClaimsPrincipal user, AppUserDto appUserDto) => await RunWithCommitAsync(async () =>
     {
         var requestingOrgId = RoleUtility.GetOrgIdFromClaims(user);
-        const string action = AppUserActions.UpdateUser;
         var userToUpdate = await appUserRepository.GetUserByIdAsync(appUserDto.Id);
 
         if (userToUpdate is null)
         {
-            logger.WarningWithContext(
-                user,
-                new StructuredLogBuilder()
-                    .SetAction(action)
-                    .SetStatus(LogStatuses.Failure)
-                    .SetTarget(AppUserTargets.UserInOrg(appUserDto.Id, requestingOrgId))
-                    .SetEntity(nameof(AppUser))
-                    .SetDetail("No user found for the specified ID.")
-                );
+            SecurityEvent.UserManagement(logger,
+                SecurityEvent.Type.Change,
+                "user-update",
+                SecurityEvent.Outcome.Failure,
+                $"User not found for update: {appUserDto.Id}",
+                user);
             return ServiceResponseFactory.Error<AppUserDto>(ServiceResponseConstants.UserNotFound);
         }
 
         if (requestingOrgId != userToUpdate.OrganizationId)
         {
-            logger.CriticalWithContext(
-                user,
-                new StructuredLogBuilder()
-                    .SetType(LogTypes.Security.Threat)
-                    .SetAction(action)
-                    .SetStatus(LogStatuses.Failure)
-                    .SetTarget(AppUserTargets.UserInOrg(userToUpdate.Id, userToUpdate.OrganizationId))
-                    .SetEntity(nameof(AppUser))
-                    .SetDetail("Unauthorized attempt to modify user in another organization")
-                );
+            SecurityEvent.Threat(logger, "user-update",
+                $"Unauthorized cross-organization user update attempt: {userToUpdate.Id}",
+                reason: "User belongs to different organization",
+                user: user);
             return ServiceResponseFactory.Error<AppUserDto>(ServiceResponseConstants.UserUnauthorized);
         }
 
@@ -177,14 +156,12 @@ public class AppUserService(
         var users = await appUserRepository.GetUsersForOrganizationAsync(RoleUtility.GetOrgIdFromClaims(user));
         var basicUsersDto = users.Select(appUserMapper.ToBasicDto).ToList();
 
-        logger.InfoWithContext(user,
-            new StructuredLogBuilder()
-                .SetAction(AppUserActions.GetUsers)
-                .SetStatus(LogStatuses.Success)
-                .SetTarget(AppUserTargets.Org(RoleUtility.GetOrgIdFromClaims(user)))
-                .SetEntity(nameof(AppUser))
-                .SetDetail($"Returned {basicUsersDto.Count} users")
-            );
+        SecurityEvent.UserManagement(logger,
+            SecurityEvent.Type.Access,
+            "user-list-basic",
+            SecurityEvent.Outcome.Success,
+            $"Retrieved {basicUsersDto.Count} basic users",
+            user);
 
         return ServiceResponseFactory.Success(basicUsersDto);
     }

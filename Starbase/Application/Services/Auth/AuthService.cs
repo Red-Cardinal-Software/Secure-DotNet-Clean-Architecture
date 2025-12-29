@@ -17,6 +17,7 @@ using Application.Logging;
 using Application.Models;
 using Domain.Entities.Identity;
 using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -38,7 +39,7 @@ public class AuthService(
     IMfaAuthenticationService mfaAuthenticationService,
     ISigningKeyProvider signingKeyProvider,
     IMediator mediator,
-    LogContextHelper<AuthService> logger,
+    ILogger<AuthService> logger,
     IOptions<AppOptions> appOptions)
     : BaseAppService(unitOfWork), IAuthService
 {
@@ -72,11 +73,9 @@ public class AuthService(
                 IpAddress = ipAddress
             });
 
-            logger.Critical(new StructuredLogBuilder()
-                .SetAction(AuthActions.Login)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(username))
-            );
+            SecurityEvent.AuthFailure(logger, "login",
+                $"Login attempt for non-existent user: {username}",
+                reason: "User does not exist");
             return ServiceResponseFactory.Error<JwtResponseDto>(
                 ServiceResponseConstants.UsernameOrPasswordIncorrect);
         }
@@ -93,11 +92,9 @@ public class AuthService(
                 null,
                 ServiceResponseConstants.UserNotFoundInDatabase);
 
-            logger.Critical(new StructuredLogBuilder()
-                .SetAction(AuthActions.Login)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(username))
-                .SetDetail(ServiceResponseConstants.AppUserNotFound));
+            SecurityEvent.AuthFailure(logger, "login",
+                $"User lookup returned null after existence check: {username}",
+                reason: ServiceResponseConstants.AppUserNotFound);
             return ServiceResponseFactory.Error<JwtResponseDto>(
                 ServiceResponseConstants.UsernameOrPasswordIncorrect);
         }
@@ -122,12 +119,9 @@ public class AuthService(
                 AccountLocked = true
             });
 
-            logger.Warning(new StructuredLogBuilder()
-                .SetAction(AuthActions.Login)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(username))
-                .SetEntity(nameof(Domain.Entities.Identity.AppUser))
-                .SetDetail(string.Format(ServiceResponseConstants.AccountLockedDetailTemplate, remainingTime)));
+            SecurityEvent.AuthDenied(logger, "login",
+                $"Login denied for locked account: {username}",
+                reason: $"Account locked, remaining: {remainingTime}");
 
             return ServiceResponseFactory.Error<JwtResponseDto>(lockoutMessage);
         }
@@ -157,12 +151,9 @@ public class AuthService(
                 AccountLocked = wasLocked
             });
 
-            logger.Critical(new StructuredLogBuilder()
-                .SetAction(AuthActions.Login)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(username))
-                .SetEntity(nameof(Domain.Entities.Identity.AppUser))
-                .SetDetail(string.Format(ServiceResponseConstants.InvalidCredentialsDetailTemplate, wasLocked)));
+            SecurityEvent.AuthFailure(logger, "login",
+                $"Invalid credentials for user: {username}",
+                reason: $"Invalid credentials, account locked: {wasLocked}");
 
             return ServiceResponseFactory.Error<JwtResponseDto>(errorMessage);
         }
@@ -185,12 +176,12 @@ public class AuthService(
                 return ServiceResponseFactory.Error<JwtResponseDto>(mfaChallengeResponse.Message);
             }
 
-            logger.Info(new StructuredLogBuilder()
-                .SetAction(AuthActions.Login)
-                .SetStatus(LogStatuses.Success)
-                .SetTarget(AuthTargets.User(username))
-                .SetEntity(nameof(Domain.Entities.Identity.AppUser))
-                .SetDetail("MFA challenge created"));
+            SecurityEvent.Log(logger,
+                SecurityEvent.Category.Authentication,
+                SecurityEvent.Type.Info,
+                "mfa-challenge-created",
+                SecurityEvent.Outcome.Success,
+                $"MFA challenge created for user: {username}");
 
             return ServiceResponseFactory.Success(new JwtResponseDto
             {
@@ -215,13 +206,12 @@ public class AuthService(
     {
         if (!await appUserRepository.UserExistsAsync(username))
         {
-            logger.Info(new StructuredLogBuilder()
-                .SetType(LogTypes.Security.Alert)
-                .SetAction(AuthActions.RefreshJwtToken)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(username))
-                .SetEntity(nameof(Domain.Entities.Identity.AppUser))
-                .SetDetail(ServiceResponseConstants.UserNotFound));
+            SecurityEvent.Session(logger,
+                SecurityEvent.Type.Access,
+                "token-refresh",
+                SecurityEvent.Outcome.Failure,
+                $"Token refresh failed - user not found: {username}",
+                reason: ServiceResponseConstants.UserNotFound);
             return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.UserUnauthorized);
         }
 
@@ -229,13 +219,12 @@ public class AuthService(
 
         if (user is null)
         {
-            logger.Info(new StructuredLogBuilder()
-                .SetType(LogTypes.Security.Alert)
-                .SetAction(AuthActions.RefreshJwtToken)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(username))
-                .SetEntity(nameof(Domain.Entities.Identity.AppUser))
-                .SetDetail(ServiceResponseConstants.UserNotFound));
+            SecurityEvent.Session(logger,
+                SecurityEvent.Type.Access,
+                "token-refresh",
+                SecurityEvent.Outcome.Failure,
+                $"Token refresh failed - user lookup returned null: {username}",
+                reason: ServiceResponseConstants.UserNotFound);
             return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.UserUnauthorized);
         }
 
@@ -243,37 +232,32 @@ public class AuthService(
 
         if (thisToken is null)
         {
-            logger.Info(new StructuredLogBuilder()
-                .SetType(LogTypes.Security.Alert)
-                .SetAction(AuthActions.RefreshJwtToken)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(username))
-                .SetEntity(nameof(RefreshToken))
-                .SetDetail(ServiceResponseConstants.TokenNotFound));
+            SecurityEvent.Session(logger,
+                SecurityEvent.Type.Access,
+                "token-refresh",
+                SecurityEvent.Outcome.Failure,
+                $"Token refresh failed - token not found for user: {username}",
+                reason: ServiceResponseConstants.TokenNotFound);
             return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.UserUnauthorized);
         }
 
         if (!string.IsNullOrWhiteSpace(thisToken.ReplacedBy))
         {
-            logger.Info(new StructuredLogBuilder()
-                .SetType(LogTypes.Security.Threat)
-                .SetAction(AuthActions.RefreshJwtToken)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(username))
-                .SetEntity(nameof(RefreshToken))
-                .SetDetail(ServiceResponseConstants.RefreshTokenAlreadyClaimed));
+            SecurityEvent.Threat(logger, "token-reuse",
+                $"Refresh token reuse detected for user: {username}",
+                reason: ServiceResponseConstants.RefreshTokenAlreadyClaimed);
             await refreshTokenRepository.RevokeRefreshTokenFamilyAsync(thisToken.TokenFamily);
             return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.UserUnauthorized);
         }
 
         if (thisToken.Expires < DateTime.UtcNow)
         {
-            logger.Info(new StructuredLogBuilder()
-                .SetAction(AuthActions.RefreshJwtToken)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(username))
-                .SetEntity(nameof(RefreshToken))
-                .SetDetail(ServiceResponseConstants.RefreshTokenExpired));
+            SecurityEvent.Session(logger,
+                SecurityEvent.Type.End,
+                "token-refresh",
+                SecurityEvent.Outcome.Failure,
+                $"Refresh token expired for user: {username}",
+                reason: ServiceResponseConstants.RefreshTokenExpired);
             await refreshTokenRepository.RevokeRefreshTokenFamilyAsync(thisToken.TokenFamily);
             return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.RefreshTokenExpired);
         }
@@ -294,11 +278,11 @@ public class AuthService(
                 IpAddress = ipAddress
             });
 
-            logger.Info(new StructuredLogBuilder()
-                .SetAction(AuthActions.RefreshJwtToken)
-                .SetStatus(LogStatuses.Success)
-                .SetTarget(AuthTargets.User(username))
-                .SetEntity(nameof(RefreshToken)));
+            SecurityEvent.Session(logger,
+                SecurityEvent.Type.Access,
+                "token-refresh",
+                SecurityEvent.Outcome.Success,
+                $"Token refreshed successfully for user: {username}");
 
             return ServiceResponseFactory.Success(new JwtResponseDto
             {
@@ -307,12 +291,12 @@ public class AuthService(
             });
         }
 
-        logger.Info(new StructuredLogBuilder()
-            .SetAction(AuthActions.RefreshJwtToken)
-            .SetStatus(LogStatuses.Failure)
-            .SetTarget(AuthTargets.User(username))
-            .SetEntity(nameof(RefreshToken))
-            .SetDetail(ServiceResponseConstants.UnableToGenerateRefreshToken));
+        SecurityEvent.Session(logger,
+            SecurityEvent.Type.Access,
+            "token-refresh",
+            SecurityEvent.Outcome.Failure,
+            $"Token refresh failed for user: {username}",
+            reason: ServiceResponseConstants.UnableToGenerateRefreshToken);
         return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.UnableToGenerateRefreshToken);
     });
 
@@ -328,26 +312,18 @@ public class AuthService(
 
         if (user is null)
         {
-            logger.Info(new StructuredLogBuilder()
-                .SetType(LogTypes.Security.Threat)
-                .SetAction(AuthActions.Logout)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(username))
-                .SetEntity(nameof(Domain.Entities.Identity.AppUser))
-                .SetDetail(ServiceResponseConstants.UserNotFound));
+            SecurityEvent.Threat(logger, "logout",
+                $"Logout attempt for non-existent user: {username}",
+                reason: ServiceResponseConstants.UserNotFound);
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.UserUnauthorized);
         }
 
         var thisRefreshToken = await refreshTokenRepository.GetRefreshTokenAsync(Guid.Parse(refreshToken), user.Id);
         if (thisRefreshToken is null)
         {
-            logger.Info(new StructuredLogBuilder()
-                .SetType(LogTypes.Security.Threat)
-                .SetAction(AuthActions.Logout)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(username))
-                .SetEntity(nameof(RefreshToken))
-                .SetDetail(ServiceResponseConstants.TokenNotFound));
+            SecurityEvent.Threat(logger, "logout",
+                $"Logout with invalid token for user: {username}",
+                reason: ServiceResponseConstants.TokenNotFound);
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.UserUnauthorized);
         }
 
@@ -360,12 +336,11 @@ public class AuthService(
             Username = username
         });
 
-        logger.Info(new StructuredLogBuilder()
-            .SetAction(AuthActions.Logout)
-            .SetStatus(LogStatuses.Success)
-            .SetTarget(AuthTargets.User(username))
-            .SetEntity(nameof(Domain.Entities.Identity.AppUser))
-            .SetDetail(ServiceResponseConstants.UserLoggedOut));
+        SecurityEvent.Session(logger,
+            SecurityEvent.Type.End,
+            "logout",
+            SecurityEvent.Outcome.Success,
+            $"User logged out: {username}");
         return ServiceResponseFactory.Success(result);
     });
 
@@ -382,13 +357,13 @@ public class AuthService(
 
         if (user is null)
         {
-            logger.Info(new StructuredLogBuilder()
-                .SetType(LogTypes.Security.Alert)
-                .SetAction(AuthActions.RequestCredentialReset)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(email))
-                .SetEntity(nameof(Domain.Entities.Identity.AppUser))
-                .SetDetail(ServiceResponseConstants.UserNotFound));
+            SecurityEvent.Log(logger,
+                SecurityEvent.Category.Authentication,
+                SecurityEvent.Type.Info,
+                "password-reset-request",
+                SecurityEvent.Outcome.Failure,
+                $"Password reset requested for non-existent email: {email}",
+                reason: ServiceResponseConstants.UserNotFound);
             // Do not give too much information to an attacker that is trying to probe for valid usernames
             return ServiceResponseFactory.Success(true, ServiceResponseConstants.EmailPasswordResetSent);
         }
@@ -411,12 +386,12 @@ public class AuthService(
             UserExists = true
         });
 
-        logger.Info(new StructuredLogBuilder()
-            .SetAction(AuthActions.RequestCredentialReset)
-            .SetStatus(LogStatuses.Success)
-            .SetTarget(AuthTargets.User(email))
-            .SetEntity(nameof(Domain.Entities.Identity.AppUser))
-            .SetDetail(ServiceResponseConstants.EmailPasswordResetSent));
+        SecurityEvent.Log(logger,
+            SecurityEvent.Category.Authentication,
+            SecurityEvent.Type.Start,
+            "password-reset-request",
+            SecurityEvent.Outcome.Success,
+            $"Password reset email sent to: {email}");
 
         return ServiceResponseFactory.Success(true, ServiceResponseConstants.EmailPasswordResetSent);
     });
@@ -475,21 +450,15 @@ public class AuthService(
         if (!verificationResponse.Success)
         {
             // Log the failed MFA attempt
-            logger.Warning(new StructuredLogBuilder()
-                .SetAction(AuthActions.Login)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User("MFA"))
-                .SetEntity("MfaChallenge")
-                .SetDetail($"MFA verification failed: {verificationResponse.Message}"));
+            SecurityEvent.AuthFailure(logger, "mfa-verification",
+                "MFA verification failed",
+                reason: verificationResponse.Message);
 
             if (verificationResponse.Data?.IsExhausted == true)
             {
-                logger.Critical(new StructuredLogBuilder()
-                    .SetAction(AuthActions.Login)
-                    .SetStatus(LogStatuses.Failure)
-                    .SetTarget(AuthTargets.User("MFA"))
-                    .SetEntity("MfaChallenge")
-                    .SetDetail("MFA challenge exhausted - potential brute force attempt"));
+                SecurityEvent.Threat(logger, "mfa-brute-force",
+                    "MFA challenge exhausted - potential brute force attempt",
+                    reason: "Maximum verification attempts exceeded");
             }
 
             return ServiceResponseFactory.Error<JwtResponseDto>(
@@ -501,12 +470,9 @@ public class AuthService(
         var user = await appUserRepository.GetUserByIdAsync(userId);
         if (user == null)
         {
-            logger.Critical(new StructuredLogBuilder()
-                .SetAction(AuthActions.Login)
-                .SetStatus(LogStatuses.Failure)
-                .SetTarget(AuthTargets.User(userId.ToString()))
-                .SetEntity(nameof(AppUser))
-                .SetDetail("User not found after successful MFA verification"));
+            SecurityEvent.AuthFailure(logger, "mfa-verification",
+                $"User not found after successful MFA verification: {userId}",
+                reason: "User not found");
 
             return ServiceResponseFactory.Error<JwtResponseDto>("Authentication failed");
         }
@@ -515,12 +481,9 @@ public class AuthService(
         var loginResult = await CompleteUserLogin(user, user.Username, ipAddress);
 
         // Log successful MFA completion
-        logger.Info(new StructuredLogBuilder()
-            .SetAction(AuthActions.Login)
-            .SetStatus(LogStatuses.Success)
-            .SetTarget(AuthTargets.User(user.Username))
-            .SetEntity(nameof(AppUser))
-            .SetDetail($"MFA authentication completed successfully. Recovery code used: {verificationResponse.Data.UsedRecoveryCode}"));
+        var recoveryCodeUsed = verificationResponse.Data.UsedRecoveryCode ? "recovery code" : "authenticator";
+        SecurityEvent.AuthSuccess(logger, "mfa-verification",
+            $"MFA authentication completed for user: {user.Username} (via {recoveryCodeUsed})");
 
         return loginResult;
     });
@@ -558,12 +521,8 @@ public class AuthService(
             IpAddress = ipAddress
         });
 
-        logger.Info(new StructuredLogBuilder()
-            .SetAction(AuthActions.Login)
-            .SetStatus(LogStatuses.Success)
-            .SetTarget(AuthTargets.User(username))
-            .SetEntity(nameof(Domain.Entities.Identity.AppUser))
-            .SetDetail("User authentication completed successfully"));
+        SecurityEvent.AuthSuccess(logger, "login",
+            $"User authentication completed: {username}");
 
         return ServiceResponseFactory.Success(new JwtResponseDto
         {

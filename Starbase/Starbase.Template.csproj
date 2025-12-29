@@ -37,6 +37,13 @@
     <Content Include="Application.Tests/**/*" Exclude="**/bin/**;**/obj/**" />
     <Content Include="Domain.Tests/**/*" Exclude="**/bin/**;**/obj/**" />
     <Content Include="WebApi.Integration.Tests/**/*" Exclude="**/bin/**;**/obj/**" />
+    <Content Include="TestUtils/**/*" Exclude="**/bin/**;**/obj/**" />
+    <Content Include="Starbase.sln" />
+    <Content Include="README.md" />
+    <Content Include="Dockerfile" />
+    <Content Include=".dockerignore" />
+    <Content Include="docker-compose.yml" />
+    <Content Include="docker-compose.deps.yml" />
     <Content Include="*.sln" />
   </ItemGroup>
 
