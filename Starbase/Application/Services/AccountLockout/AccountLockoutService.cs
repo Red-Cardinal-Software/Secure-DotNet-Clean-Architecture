@@ -3,7 +3,9 @@ using Application.Common.Services;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
+using Application.Logging;
 using Domain.Entities.Security;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Application.Services.AccountLockout;
@@ -17,7 +19,8 @@ public class AccountLockoutService(
     IAccountLockoutRepository accountLockoutRepository,
     ILoginAttemptRepository loginAttemptRepository,
     IUnitOfWork unitOfWork,
-    IOptions<AccountLockoutOptions> accountLockoutOptions)
+    IOptions<AccountLockoutOptions> accountLockoutOptions,
+    ILogger<AccountLockoutService> logger)
     : BaseAppService(unitOfWork), IAccountLockoutService
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
@@ -68,6 +71,13 @@ public class AccountLockoutService(
             lockoutConfig.BaseLockoutDuration,
             lockoutConfig.MaxLockoutDuration,
             lockoutConfig.AttemptResetWindow);
+
+        if (wasLocked)
+        {
+            SecurityEvent.Threat(logger, "account-lockout",
+                $"Account locked due to failed attempts for user: {userId}",
+                reason: $"Failed attempts: {lockout.FailedAttemptCount}, Duration: {lockout.GetRemainingLockoutDuration()}");
+        }
 
         return wasLocked;
     });
@@ -124,6 +134,14 @@ public class AccountLockoutService(
         {
             lockout.UnlockAccount(resetFailedAttempts: false);
             await _unitOfWork.CommitAsync(cancellationToken);
+
+            SecurityEvent.Log(logger,
+                SecurityEvent.Category.Iam,
+                SecurityEvent.Type.Info,
+                "account-lockout",
+                SecurityEvent.Outcome.Success,
+                $"Account auto-unlocked after lockout expiry for user: {userId}");
+
             return null;
         }
 
@@ -155,6 +173,14 @@ public class AccountLockoutService(
         var lockout = await accountLockoutRepository.GetOrCreateAsync(userId, cancellationToken);
 
         lockout.LockAccount(duration, reason, lockedByUserId);
+
+        SecurityEvent.Log(logger,
+            SecurityEvent.Category.Iam,
+            SecurityEvent.Type.Change,
+            "account-lockout",
+            SecurityEvent.Outcome.Success,
+            $"Account manually locked for user: {userId}",
+            reason: $"Locked by: {lockedByUserId}, Reason: {reason}");
     });
 
     /// <summary>
@@ -167,7 +193,17 @@ public class AccountLockoutService(
         CancellationToken cancellationToken = default) => await RunWithCommitAsync(async () =>
     {
         var lockout = await accountLockoutRepository.GetByUserIdAsync(userId, cancellationToken);
-        lockout?.UnlockAccount(resetFailedAttempts);
+        if (lockout?.IsLockedOut == true)
+        {
+            lockout.UnlockAccount(resetFailedAttempts);
+
+            SecurityEvent.Log(logger,
+                SecurityEvent.Category.Iam,
+                SecurityEvent.Type.Change,
+                "account-lockout",
+                SecurityEvent.Outcome.Success,
+                $"Account manually unlocked for user: {userId}");
+        }
     });
 
     /// <summary>

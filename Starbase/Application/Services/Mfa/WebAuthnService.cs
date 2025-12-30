@@ -2,6 +2,7 @@ using Application.Common.Factories;
 using Application.DTOs.Mfa.WebAuthn;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
+using Application.Logging;
 using Application.Models;
 using Domain.Entities.Security;
 using Fido2NetLib;
@@ -311,8 +312,9 @@ public class WebAuthnService(
 
             if (verificationResult.Status != "ok")
             {
-                logger.LogWarning("WebAuthn authentication failed for credential {CredentialId}: {Error}",
-                    credential.Id, verificationResult.ErrorMessage);
+                SecurityEvent.AuthFailure(logger, "webauthn-auth",
+                    $"WebAuthn authentication failed for user: {credential.UserId}",
+                    reason: verificationResult.ErrorMessage ?? "Authentication verification failed");
                 return ServiceResponseFactory.Error<WebAuthnAuthenticationResultDto>(
                     verificationResult.ErrorMessage ?? "Authentication verification failed");
             }
@@ -320,9 +322,9 @@ public class WebAuthnService(
             // Update sign count and check for cloned authenticators
             if (!credential.UpdateSignCount(verificationResult.Counter))
             {
-                logger.LogWarning("Potential cloned authenticator detected for credential {CredentialId}. " +
-                    "Previous count: {PreviousCount}, New count: {NewCount}",
-                    credential.Id, credential.SignCount, verificationResult.Counter);
+                SecurityEvent.Threat(logger, "webauthn-auth",
+                    $"Cloned authenticator detected for user: {credential.UserId}",
+                    reason: $"Sign count regression: previous={credential.SignCount}, received={verificationResult.Counter}");
                 return ServiceResponseFactory.Error<WebAuthnAuthenticationResultDto>("Security error: potential cloned authenticator");
             }
 

@@ -11,6 +11,7 @@ using Application.Interfaces.Providers;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Security;
 using Application.Interfaces.Services;
+using Application.Logging;
 using Application.Models;
 using Domain.Constants;
 using Domain.Entities.Identity;
@@ -67,7 +68,9 @@ public class SetupService(
             // Double-check setup state (in case of race condition)
             if (IsSetupComplete)
             {
-                logger.LogWarning("Setup endpoint called but system is already configured");
+                SecurityEvent.Threat(logger, "initial-setup",
+                    "Setup endpoint called after system already configured",
+                    reason: "Potential unauthorized setup attempt");
                 return ServiceResponseFactory.Error<JwtResponseDto>("System is already configured");
             }
 
@@ -119,7 +122,12 @@ public class SetupService(
                 Priority = CacheItemPriority.NeverRemove
             });
 
-            logger.LogInformation("Initial admin user created: {Email}", request.Email);
+            SecurityEvent.Log(logger,
+                SecurityEvent.Category.Iam,
+                SecurityEvent.Type.Creation,
+                "initial-setup",
+                SecurityEvent.Outcome.Success,
+                $"Initial admin user created: {adminUser.Id}");
 
             // Create refresh token
             var refreshToken = new RefreshToken(
