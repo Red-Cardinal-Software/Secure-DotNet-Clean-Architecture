@@ -210,7 +210,7 @@ public class AuthService(
                 SecurityEvent.Type.Access,
                 "token-refresh",
                 SecurityEvent.Outcome.Failure,
-                $"Token refresh failed - user not found: {username}",
+                $"Token refresh failed - user not found",
                 reason: ServiceResponseConstants.UserNotFound);
             return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.UserUnauthorized);
         }
@@ -223,7 +223,7 @@ public class AuthService(
                 SecurityEvent.Type.Access,
                 "token-refresh",
                 SecurityEvent.Outcome.Failure,
-                $"Token refresh failed - user lookup returned null: {username}",
+                $"Token refresh failed - user lookup returned null",
                 reason: ServiceResponseConstants.UserNotFound);
             return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.UserUnauthorized);
         }
@@ -236,7 +236,7 @@ public class AuthService(
                 SecurityEvent.Type.Access,
                 "token-refresh",
                 SecurityEvent.Outcome.Failure,
-                $"Token refresh failed - token not found for user: {username}",
+                $"Token refresh failed - token not found for user: {user.Id}",
                 reason: ServiceResponseConstants.TokenNotFound);
             return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.UserUnauthorized);
         }
@@ -244,7 +244,7 @@ public class AuthService(
         if (!string.IsNullOrWhiteSpace(thisToken.ReplacedBy))
         {
             SecurityEvent.Threat(logger, "token-reuse",
-                $"Refresh token reuse detected for user: {username}",
+                $"Refresh token reuse detected for user: {user.Id}",
                 reason: ServiceResponseConstants.RefreshTokenAlreadyClaimed);
             await refreshTokenRepository.RevokeRefreshTokenFamilyAsync(thisToken.TokenFamily);
             return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.UserUnauthorized);
@@ -256,7 +256,7 @@ public class AuthService(
                 SecurityEvent.Type.End,
                 "token-refresh",
                 SecurityEvent.Outcome.Failure,
-                $"Refresh token expired for user: {username}",
+                $"Refresh token expired for user: {user.Id}",
                 reason: ServiceResponseConstants.RefreshTokenExpired);
             await refreshTokenRepository.RevokeRefreshTokenFamilyAsync(thisToken.TokenFamily);
             return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.RefreshTokenExpired);
@@ -282,7 +282,7 @@ public class AuthService(
                 SecurityEvent.Type.Access,
                 "token-refresh",
                 SecurityEvent.Outcome.Success,
-                $"Token refreshed successfully for user: {username}");
+                $"Token refreshed successfully for user: {user.Id}");
 
             return ServiceResponseFactory.Success(new JwtResponseDto
             {
@@ -295,7 +295,7 @@ public class AuthService(
             SecurityEvent.Type.Access,
             "token-refresh",
             SecurityEvent.Outcome.Failure,
-            $"Token refresh failed for user: {username}",
+            $"Token refresh failed for user: {user.Id}",
             reason: ServiceResponseConstants.UnableToGenerateRefreshToken);
         return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.UnableToGenerateRefreshToken);
     });
@@ -313,7 +313,7 @@ public class AuthService(
         if (user is null)
         {
             SecurityEvent.Threat(logger, "logout",
-                $"Logout attempt for non-existent user: {username}",
+                $"Logout attempt for non-existent user",
                 reason: ServiceResponseConstants.UserNotFound);
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.UserUnauthorized);
         }
@@ -322,7 +322,7 @@ public class AuthService(
         if (thisRefreshToken is null)
         {
             SecurityEvent.Threat(logger, "logout",
-                $"Logout with invalid token for user: {username}",
+                $"Logout with invalid token for user",
                 reason: ServiceResponseConstants.TokenNotFound);
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.UserUnauthorized);
         }
@@ -362,7 +362,7 @@ public class AuthService(
                 SecurityEvent.Type.Info,
                 "password-reset-request",
                 SecurityEvent.Outcome.Failure,
-                $"Password reset requested for non-existent email: {email}",
+                $"Password reset requested for non-existent",
                 reason: ServiceResponseConstants.UserNotFound);
             // Do not give too much information to an attacker that is trying to probe for valid usernames
             return ServiceResponseFactory.Success(true, ServiceResponseConstants.EmailPasswordResetSent);
@@ -391,7 +391,7 @@ public class AuthService(
             SecurityEvent.Type.Start,
             "password-reset-request",
             SecurityEvent.Outcome.Success,
-            $"Password reset email sent to: {email}");
+            $"Password reset email sent");
 
         return ServiceResponseFactory.Success(true, ServiceResponseConstants.EmailPasswordResetSent);
     });

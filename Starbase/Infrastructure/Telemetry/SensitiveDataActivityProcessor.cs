@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 using System.Text.RegularExpressions;
 using OpenTelemetry;
 
@@ -56,15 +57,9 @@ public partial class SensitiveDataActivityProcessor : BaseProcessor<Activity>
         if (data.TagObjects == null)
             return;
 
-        var tagsToRedact = new List<KeyValuePair<string, object?>>();
-
-        foreach (var tag in data.TagObjects)
-        {
-            if (ShouldRedact(tag.Key, tag.Value))
-            {
-                tagsToRedact.Add(tag);
-            }
-        }
+        var tagsToRedact = data.TagObjects
+            .Where(tag => ShouldRedact(tag.Key, tag.Value))
+            .ToList();
 
         // Replace sensitive tags with redacted versions
         foreach (var tag in tagsToRedact)
@@ -90,20 +85,14 @@ public partial class SensitiveDataActivityProcessor : BaseProcessor<Activity>
 
         // Check if key contains sensitive patterns
         var lowerKey = key.ToLowerInvariant();
-        foreach (var pattern in SensitiveKeyPatterns)
-        {
-            if (lowerKey.Contains(pattern))
-                return true;
-        }
+        if (SensitiveKeyPatterns.Any(pattern => lowerKey.Contains(pattern)))
+            return true;
 
         // Check if value looks like a secret
         if (value is string strValue && !string.IsNullOrEmpty(strValue))
         {
-            foreach (var pattern in SensitiveValuePatterns)
-            {
-                if (pattern.IsMatch(strValue))
-                    return true;
-            }
+            if (SensitiveValuePatterns.Any(pattern => pattern.IsMatch(strValue)))
+                return true;
         }
 
         return false;

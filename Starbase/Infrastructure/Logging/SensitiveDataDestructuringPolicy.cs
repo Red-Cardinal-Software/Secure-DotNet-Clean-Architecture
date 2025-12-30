@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Reflection;
 using Domain.Attributes;
 using Serilog.Core;
@@ -61,11 +63,8 @@ public class SensitiveDataDestructuringPolicy : IDestructuringPolicy
 
         var logEventProperties = new List<LogEventProperty>();
 
-        foreach (var prop in properties)
+        foreach (var prop in properties.Where(p => p.CanRead))
         {
-            if (!prop.CanRead)
-                continue;
-
             try
             {
                 var propValue = prop.GetValue(value);
@@ -87,7 +86,7 @@ public class SensitiveDataDestructuringPolicy : IDestructuringPolicy
 
                 logEventProperties.Add(new LogEventProperty(prop.Name, logValue));
             }
-            catch
+            catch (Exception)
             {
                 // If we can't read the property, skip it
                 logEventProperties.Add(new LogEventProperty(prop.Name, new ScalarValue("[ERROR READING]")));
