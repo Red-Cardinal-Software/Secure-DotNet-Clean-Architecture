@@ -45,7 +45,8 @@ internal class MfaChallengeConfiguration : EntityTypeConfiguration<MfaChallenge>
 
         builder.Property(c => c.AttemptCount)
             .IsRequired()
-            .HasDefaultValue(0);
+            .HasDefaultValue(0)
+            .IsConcurrencyToken();
 
         builder.Property(c => c.IpAddress)
             .HasMaxLength(45) // IPv6 length
