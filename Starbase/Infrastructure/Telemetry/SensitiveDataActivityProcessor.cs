@@ -89,10 +89,11 @@ public partial class SensitiveDataActivityProcessor : BaseProcessor<Activity>
             return true;
 
         // Check if value looks like a secret
-        if (value is string strValue && !string.IsNullOrEmpty(strValue))
+        if (value is string strValue &&
+            !string.IsNullOrEmpty(strValue) &&
+            SensitiveValuePatterns.Any(pattern => pattern.IsMatch(strValue)))
         {
-            if (SensitiveValuePatterns.Any(pattern => pattern.IsMatch(strValue)))
-                return true;
+            return true;
         }
 
         return false;
