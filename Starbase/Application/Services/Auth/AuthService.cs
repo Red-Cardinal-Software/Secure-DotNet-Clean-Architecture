@@ -74,7 +74,7 @@ public class AuthService(
             });
 
             SecurityEvent.AuthFailure(logger, "login",
-                $"Login attempt for non-existent user: {username}",
+                $"Login attempt for non-existent user",
                 reason: "User does not exist");
             return ServiceResponseFactory.Error<JwtResponseDto>(
                 ServiceResponseConstants.UsernameOrPasswordIncorrect);
@@ -93,7 +93,7 @@ public class AuthService(
                 ServiceResponseConstants.UserNotFoundInDatabase);
 
             SecurityEvent.AuthFailure(logger, "login",
-                $"User lookup returned null after existence check: {username}",
+                $"User lookup returned null after existence check",
                 reason: ServiceResponseConstants.AppUserNotFound);
             return ServiceResponseFactory.Error<JwtResponseDto>(
                 ServiceResponseConstants.UsernameOrPasswordIncorrect);
@@ -120,7 +120,7 @@ public class AuthService(
             });
 
             SecurityEvent.AuthDenied(logger, "login",
-                $"Login denied for locked account: {username}",
+                $"Login denied for locked account: {user.Id}",
                 reason: $"Account locked, remaining: {remainingTime}");
 
             return ServiceResponseFactory.Error<JwtResponseDto>(lockoutMessage);
@@ -152,7 +152,7 @@ public class AuthService(
             });
 
             SecurityEvent.AuthFailure(logger, "login",
-                $"Invalid credentials for user: {username}",
+                $"Invalid credentials for user: {user.Id}",
                 reason: $"Invalid credentials, account locked: {wasLocked}");
 
             return ServiceResponseFactory.Error<JwtResponseDto>(errorMessage);
@@ -181,7 +181,7 @@ public class AuthService(
                 SecurityEvent.Type.Info,
                 "mfa-challenge-created",
                 SecurityEvent.Outcome.Success,
-                $"MFA challenge created for user: {username}");
+                $"MFA challenge created for user: {user.Id}");
 
             return ServiceResponseFactory.Success(new JwtResponseDto
             {
@@ -340,7 +340,7 @@ public class AuthService(
             SecurityEvent.Type.End,
             "logout",
             SecurityEvent.Outcome.Success,
-            $"User logged out: {username}");
+            $"User logged out: {user.Id}");
         return ServiceResponseFactory.Success(result);
     });
 
@@ -483,7 +483,7 @@ public class AuthService(
         // Log successful MFA completion
         var recoveryCodeUsed = verificationResponse.Data.UsedRecoveryCode ? "recovery code" : "authenticator";
         SecurityEvent.AuthSuccess(logger, "mfa-verification",
-            $"MFA authentication completed for user: {user.Username} (via {recoveryCodeUsed})");
+            $"MFA authentication completed for user: {user.Id} (via {recoveryCodeUsed})");
 
         return loginResult;
     });
@@ -522,7 +522,7 @@ public class AuthService(
         });
 
         SecurityEvent.AuthSuccess(logger, "login",
-            $"User authentication completed: {username}");
+            $"User authentication completed: {user.Id}");
 
         return ServiceResponseFactory.Success(new JwtResponseDto
         {
