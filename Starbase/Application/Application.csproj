@@ -13,7 +13,7 @@
     <ItemGroup>
       <PackageReference Include="AutoMapper" Version="15.0.1" />
       <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
-      <PackageReference Include="Fido2" Version="3.0.1" />
+      <PackageReference Include="Fido2" Version="4.0.0" />
       <PackageReference Include="FluentValidation" Version="12.0.0" />
       <PackageReference Include="MediatR" Version="14.0.0" />
       <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="8.0.19" />
