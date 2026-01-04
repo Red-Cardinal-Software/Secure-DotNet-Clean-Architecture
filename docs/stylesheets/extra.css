@@ -1,0 +1,16 @@
+/* Fix oversized permalink/anchor icons next to headings */
+.md-content a.headerlink {
+  font-size: 0.7em;
+  vertical-align: middle;
+  margin-left: 0.3em;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.md-content :is(h1, h2, h3, h4, h5, h6):hover a.headerlink {
+  opacity: 0.5;
+}
+
+.md-content a.headerlink:hover {
+  opacity: 1;
+}

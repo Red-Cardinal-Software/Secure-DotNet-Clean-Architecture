@@ -3,6 +3,7 @@ site_description: A Secure .NET Clean Architecture Template
 site_url: https://red-cardinal-software.github.io/Secure-DotNet-Clean-Architecture/
 repo_url: https://github.com/Red-Cardinal-Software/Secure-DotNet-Clean-Architecture
 repo_name: Red-Cardinal-Software/Secure-DotNet-Clean-Architecture
+use_directory_urls: true
 
 theme:
   name: material
@@ -53,12 +54,23 @@ nav:
     - Rate Limiting: security/rate-limiting.md
     - Security Headers: security/security-headers.md
     - JWT Key Rotation: security/jwt-key-rotation.md
+  - Architecture Decisions:
+    - Overview: adr/index.md
+    - Clean Architecture: adr/001-clean-architecture.md
+    - ServiceResponse Pattern: adr/002-service-response-pattern.md
+    - SQL Server Ledger Audit: adr/003-sql-server-ledger-audit.md
+    - Unit of Work Pattern: adr/004-unit-of-work-crud-operator.md
+    - JWT Key Rotation: adr/005-jwt-key-rotation.md
+    - Compliance Presets: adr/006-compliance-presets.md
   - Audit Logging: audit-logging.md
   - Observability: observability.md
   - Health Checks: health-checks.md
   - Docker: docker.md
   - Configuration: configuration.md
   - Contributing: contributing.md
+
+extra_css:
+  - stylesheets/extra.css
 
 extra:
   social:
