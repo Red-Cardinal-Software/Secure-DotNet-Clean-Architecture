@@ -36,7 +36,54 @@
       <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
       <PackageReference Include="QRCoder" Version="1.7.0" />
       <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.13.0" />
+      <!-- Email subsystem packages (core - always included) -->
+      <PackageReference Include="Fluid.Core" Version="2.11.1" />
+      <PackageReference Include="HtmlAgilityPack" Version="1.11.72" />
+    </ItemGroup>
+
+    <!-- Email provider packages - included in source for compilation, conditional in output template -->
+    <ItemGroup>
+      <PackageReference Include="SendGrid" Version="9.29.3" />
+      <PackageReference Include="AWSSDK.SimpleEmailV2" Version="4.0.11" />
+      <PackageReference Include="Postmark" Version="5.3.0" />
+      <PackageReference Include="Mandrill.net" Version="9.0.2" />
+    </ItemGroup>
+
+    <!--#if (UseSendGrid) -->
+    <!--<ItemGroup>
+      <PackageReference Include="SendGrid" Version="9.29.3" />
+    </ItemGroup>-->
+    <!--#endif -->
+
+    <!--#if (UseAwsSes) -->
+    <!--<ItemGroup>
+      <PackageReference Include="AWSSDK.SimpleEmailV2" Version="4.0.11" />
+    </ItemGroup>-->
+    <!--#endif -->
+
+    <!--#if (UsePostmark) -->
+    <!--<ItemGroup>
+      <PackageReference Include="Postmark" Version="5.3.0" />
+    </ItemGroup>-->
+    <!--#endif -->
+
+    <!--#if (UseMailchimp) -->
+    <!--<ItemGroup>
+      <PackageReference Include="Mandrill.net" Version="9.0.2" />
+    </ItemGroup>-->
+    <!--#endif -->
+
+    <!--#if (UseMailgun) -->
+    <!-- Mailgun uses HttpClient directly, no additional package needed -->
+    <!--#endif -->
+
+    <ItemGroup>
       <EmbeddedResource Include="Security\BlacklistedPasswordSet.txt" />
+      <EmbeddedResource Include="Emailing\Templates\**\*" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Persistence\Migrations\" />
     </ItemGroup>
 
 </Project>

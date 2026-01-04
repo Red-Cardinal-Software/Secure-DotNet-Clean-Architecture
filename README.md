@@ -26,6 +26,7 @@ dotnet run --project WebApi
 | `-n, --name` | Project name | SecureApi |
 | `--DatabaseProvider` | Database: `SqlServer`, `PostgreSQL`, `Oracle` | SqlServer |
 | `--CloudProvider` | Secrets management: `None`, `Azure`, `AWS`, `GCP` | None |
+| `--EmailProvider` | Email: `None`, `Smtp`, `SendGrid`, `AwsSes`, `Postmark`, `Mailgun`, `Mailchimp` | None |
 | `--IncludeDocker` | Include Docker files | true |
 
 ### Examples
@@ -36,6 +37,9 @@ dotnet new starbase -n MyApi
 
 # With PostgreSQL and Azure Key Vault
 dotnet new starbase -n MyApi --DatabaseProvider PostgreSQL --CloudProvider Azure
+
+# With SendGrid email provider
+dotnet new starbase -n MyApi --EmailProvider SendGrid
 
 # Without Docker files
 dotnet new starbase -n MyApi --IncludeDocker false

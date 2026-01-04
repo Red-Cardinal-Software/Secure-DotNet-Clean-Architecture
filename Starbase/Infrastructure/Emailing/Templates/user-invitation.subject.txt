@@ -1,0 +1,1 @@
+{{ model.inviter_name }} invited you to join {{ model.organization_name }}

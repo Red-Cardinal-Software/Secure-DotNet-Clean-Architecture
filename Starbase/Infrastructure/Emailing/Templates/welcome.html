@@ -1,0 +1,31 @@
+<p>Hi {{ model.first_name }},</p>
+
+<p>Welcome to {{ model.app_name | default: "Starbase" }}! Your account has been created and you're ready to get started.</p>
+
+{% if model.temporary_password %}
+<div class="info-box">
+    <strong>Your Temporary Password:</strong><br>
+    <code style="font-size: 16px;">{{ model.temporary_password }}</code>
+</div>
+{% endif %}
+
+{% if model.must_change_password %}
+<div class="warning-box">
+    <strong>Important:</strong> You'll be required to change your password when you first sign in.
+</div>
+{% endif %}
+
+<p style="text-align: center;">
+    <a href="{{ model.login_link }}" class="button">Sign In Now</a>
+</p>
+
+<p>Here are a few things you can do to get started:</p>
+<ul>
+    <li>Complete your profile</li>
+    <li>Set up multi-factor authentication for added security</li>
+    <li>Explore the dashboard</li>
+</ul>
+
+<p>If you have any questions, don't hesitate to reach out to our support team.</p>
+
+<p>Welcome aboard!</p>
