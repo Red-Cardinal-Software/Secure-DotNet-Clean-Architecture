@@ -1,60 +1,76 @@
+using Domain.Entities.Identity;
+
 namespace Domain.Entities.Configuration;
 
 /// <summary>
 /// Represents a template for emails within the system.
+/// Supports organization-specific overrides, layouts, and both HTML and plain text content.
 /// </summary>
 /// <remarks>
-/// The <see cref="EmailTemplate"/> class is used for managing the data and structure of email content,
-/// including the subject, body, and whether the body is in HTML format.
-/// It includes functionality for creating and updating email templates and ensuring data validation.
+/// Templates use Liquid syntax for dynamic content. Resolution order:
+/// 1. Organization-specific template (if OrganizationId matches)
+/// 2. Global template (OrganizationId is null)
+/// 3. File-based template (embedded resources)
 /// </remarks>
 public class EmailTemplate
 {
     /// <summary>
     /// Gets the unique identifier for the email template.
     /// </summary>
-    /// <remarks>
-    /// The identifier is a GUID that is automatically generated when a new instance
-    /// of the <see cref="EmailTemplate"/> class is created.
-    /// </remarks>
     public Guid Id { get; private set; }
 
     /// <summary>
-    /// Gets the unique key associated with the email template.
+    /// Gets the unique key associated with the email template (e.g., "password-reset").
     /// </summary>
-    /// <remarks>
-    /// The key is a string identifier provided during the creation of an <see cref="EmailTemplate"/> instance.
-    /// It is used to reference the email template for retrieval and management purposes.
-    /// </remarks>
     public string Key { get; private set; } = null!;
 
     /// <summary>
-    /// Gets the subject of the email template.
+    /// Gets the organization ID for tenant-specific templates.
+    /// Null indicates a global template.
     /// </summary>
-    /// <remarks>
-    /// The subject defines the title or topic of the email and is displayed to the recipient
-    /// in their email client. It cannot be null or whitespace during instantiation or updates.
-    /// </remarks>
+    public Guid? OrganizationId { get; private set; }
+
+    /// <summary>
+    /// Gets the subject of the email template. Supports Liquid syntax.
+    /// </summary>
     public string Subject { get; private set; } = null!;
 
     /// <summary>
-    /// Gets the content of the email template.
+    /// Gets the HTML body content of the email template. Supports Liquid syntax.
     /// </summary>
-    /// <remarks>
-    /// The body contains the main message or content of the email. It can include plain text
-    /// or HTML, depending on the value of the <see cref="IsHtml"/> property.
-    /// </remarks>
-    public string Body { get; private set; } = null!;
+    public string HtmlBody { get; private set; } = null!;
 
     /// <summary>
-    /// Indicates whether the email body content is formatted as HTML.
+    /// Gets the optional plain text body content.
+    /// If null, plain text will be auto-generated from HTML.
     /// </summary>
-    /// <remarks>
-    /// When set to <c>true</c>, the email body will be treated as HTML, allowing support for
-    /// rich formatting, links, and other HTML features. When set to <c>false</c>, the body
-    /// will be treated as plain text.
-    /// </remarks>
-    public bool IsHtml { get; private set; }
+    public string? TextBody { get; private set; }
+
+    /// <summary>
+    /// Gets the optional layout template key to wrap this template.
+    /// </summary>
+    public string? LayoutKey { get; private set; }
+
+    /// <summary>
+    /// Indicates whether the template is active.
+    /// Inactive templates are skipped during resolution.
+    /// </summary>
+    public bool IsActive { get; private set; } = true;
+
+    /// <summary>
+    /// Gets the timestamp when this template was created.
+    /// </summary>
+    public DateTimeOffset CreatedAt { get; private set; }
+
+    /// <summary>
+    /// Gets the timestamp when this template was last modified.
+    /// </summary>
+    public DateTimeOffset? ModifiedAt { get; private set; }
+
+    /// <summary>
+    /// Navigation property to the organization (if tenant-specific).
+    /// </summary>
+    public Organization? Organization { get; private set; }
 
     /// <summary>
     /// Constructor for EF Core
@@ -62,10 +78,21 @@ public class EmailTemplate
     protected EmailTemplate() { }
 
     /// <summary>
-    /// Represents an email template used within the system, including its key,
-    /// subject, body content, and a flag indicating whether the content is in HTML format.
+    /// Creates a new email template.
     /// </summary>
-    public EmailTemplate(string key, string subject, string body, bool isHtml = true)
+    /// <param name="key">The unique template key.</param>
+    /// <param name="subject">The email subject (supports Liquid syntax).</param>
+    /// <param name="htmlBody">The HTML body content (supports Liquid syntax).</param>
+    /// <param name="organizationId">Optional organization ID for tenant-specific template.</param>
+    /// <param name="textBody">Optional plain text body. If null, will be auto-generated.</param>
+    /// <param name="layoutKey">Optional layout template key.</param>
+    public EmailTemplate(
+        string key,
+        string subject,
+        string htmlBody,
+        Guid? organizationId = null,
+        string? textBody = null,
+        string? layoutKey = null)
     {
         if (string.IsNullOrWhiteSpace(key))
             throw new ArgumentNullException(nameof(key), "Email template key cannot be null or whitespace.");
@@ -73,29 +100,51 @@ public class EmailTemplate
         if (string.IsNullOrWhiteSpace(subject))
             throw new ArgumentNullException(nameof(subject), "Subject cannot be null or whitespace.");
 
-        if (string.IsNullOrWhiteSpace(body))
-            throw new ArgumentNullException(nameof(body), "Body cannot be null or whitespace.");
+        if (string.IsNullOrWhiteSpace(htmlBody))
+            throw new ArgumentNullException(nameof(htmlBody), "HTML body cannot be null or whitespace.");
 
         Id = Guid.NewGuid();
-        Key = key;
+        Key = key.ToLowerInvariant();
+        OrganizationId = organizationId;
         Subject = subject;
-        Body = body;
-        IsHtml = isHtml;
+        HtmlBody = htmlBody;
+        TextBody = textBody;
+        LayoutKey = layoutKey;
+        IsActive = true;
+        CreatedAt = DateTimeOffset.UtcNow;
     }
 
     /// <summary>
-    /// Updates the content of the email template, including its subject and body.
+    /// Updates the content of the email template.
     /// </summary>
-    /// <param name="subject">The updated subject for the email template. Cannot be null or whitespace.</param>
-    /// <param name="body">The updated body for the email template. Cannot be null or whitespace.</param>
-    public void UpdateContent(string subject, string body)
+    public void UpdateContent(string subject, string htmlBody, string? textBody = null)
     {
         if (string.IsNullOrWhiteSpace(subject))
             throw new ArgumentNullException(nameof(subject), "Subject cannot be null or whitespace.");
-        if (string.IsNullOrWhiteSpace(body))
-            throw new ArgumentNullException(nameof(body), "Body cannot be null or whitespace.");
+        if (string.IsNullOrWhiteSpace(htmlBody))
+            throw new ArgumentNullException(nameof(htmlBody), "HTML body cannot be null or whitespace.");
 
         Subject = subject;
-        Body = body;
+        HtmlBody = htmlBody;
+        TextBody = textBody;
+        ModifiedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Sets the layout template key.
+    /// </summary>
+    public void SetLayout(string? layoutKey)
+    {
+        LayoutKey = layoutKey;
+        ModifiedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Activates or deactivates the template.
+    /// </summary>
+    public void SetActive(bool isActive)
+    {
+        IsActive = isActive;
+        ModifiedAt = DateTimeOffset.UtcNow;
     }
 }

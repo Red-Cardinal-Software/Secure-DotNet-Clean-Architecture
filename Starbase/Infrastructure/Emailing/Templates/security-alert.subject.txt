@@ -1,0 +1,1 @@
+Security Alert: {{ model.event_type }} - {{ model.app_name | default: "Starbase" }}

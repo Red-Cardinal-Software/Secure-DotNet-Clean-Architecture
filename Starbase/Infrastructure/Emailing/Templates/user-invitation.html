@@ -1,0 +1,24 @@
+<p>You've been invited to join <strong>{{ model.organization_name }}</strong> on {{ model.app_name | default: "Starbase" }}.</p>
+
+<div class="info-box">
+    <strong>Invited by:</strong> {{ model.inviter_name }}
+</div>
+
+{% if model.personal_message %}
+<blockquote style="border-left: 4px solid #d1d5db; margin: 16px 0; padding: 12px 16px; background-color: #f9fafb; font-style: italic;">
+    "{{ model.personal_message }}"
+</blockquote>
+{% endif %}
+
+<p style="text-align: center;">
+    <a href="{{ model.invitation_link }}" class="button">Accept Invitation</a>
+</p>
+
+<div class="warning-box">
+    <strong>This invitation expires in {{ model.expires_in_days }} days.</strong>
+</div>
+
+<p class="text-muted">If you weren't expecting this invitation, you can safely ignore this email.</p>
+
+<p class="text-muted">If the button above doesn't work, copy and paste this link into your browser:</p>
+<p class="text-muted" style="word-break: break-all;">{{ model.invitation_link }}</p>

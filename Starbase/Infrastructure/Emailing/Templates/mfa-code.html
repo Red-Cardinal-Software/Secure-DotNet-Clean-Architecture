@@ -1,0 +1,20 @@
+<p>Your verification code is:</p>
+
+<div class="code-box">
+    <span class="code">{{ model.code }}</span>
+</div>
+
+<p>Enter this code to complete your sign-in. This code will expire in <strong>{{ model.expires_in_minutes }} minutes</strong>.</p>
+
+{% if model.ip_address %}
+<div class="info-box">
+    <strong>Request Details:</strong><br>
+    IP Address: {{ model.ip_address }}
+    {% if model.location %}<br>Location: {{ model.location }}{% endif %}
+</div>
+{% endif %}
+
+<div class="warning-box">
+    <strong>Didn't request this code?</strong><br>
+    If you didn't try to sign in, someone may be trying to access your account. Consider changing your password immediately.
+</div>

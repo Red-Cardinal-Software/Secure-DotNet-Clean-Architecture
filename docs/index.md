@@ -37,6 +37,7 @@ The goal is to make it easier for teams to start secure rather than attempting t
 - **Account Lockout Protection** with exponential backoff and configurable policies
 - **Comprehensive Rate Limiting** with IP-based throttling and configurable policies
 - **Enterprise Audit Logging** with tamper-evident hash chain and SQL Server Ledger
+- **Transactional Email System** with templating, queuing, and multiple providers
 - **Production Health Check Endpoints** with privilege-based access controls
 - **Validation with FluentValidation**, including async + injected validators
 - **Docker Support** for containerized deployments
@@ -66,6 +67,7 @@ The goal is to make it easier for teams to start secure rather than attempting t
 - OpenTelemetry (Distributed Tracing & Metrics)
 - MediatR (Domain Events)
 - SQL Server Ledger Tables (Tamper-evident auditing)
+- Fluid (Liquid templating for emails)
 - xUnit + Moq + FluentAssertions
 - Clean Architecture / Domain Driven Design
 

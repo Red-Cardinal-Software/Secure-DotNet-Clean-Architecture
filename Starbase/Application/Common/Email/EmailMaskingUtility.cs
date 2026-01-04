@@ -24,19 +24,11 @@ public static class EmailMaskingUtility
         var username = parts[0];
         var domain = parts[1];
 
-        if (username.Length <= 2)
+        return username.Length switch
         {
-            // If username is very short, mask everything except first character
-            return username[0] + new string('*', username.Length - 1) + "@" + domain;
-        }
-
-        if (username.Length <= 4)
-        {
-            // For short usernames, show first and last character only
-            return username[0] + new string('*', username.Length - 2) + username[^1] + "@" + domain;
-        }
-
-        // For longer usernames, show first 2 and last character
-        return username.Substring(0, 2) + "***" + username[^1] + "@" + domain;
+            <= 2 => username[0] + new string('*', username.Length - 1) + "@" + domain,
+            <= 4 => username[0] + new string('*', username.Length - 2) + username[^1] + "@" + domain,
+            _ => username[..2] + "***" + username[^1] + "@" + domain
+        };
     }
 }

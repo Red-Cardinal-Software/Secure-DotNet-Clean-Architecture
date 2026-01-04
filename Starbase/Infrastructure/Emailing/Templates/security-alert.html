@@ -1,0 +1,37 @@
+<p>Hi {{ model.first_name }},</p>
+
+<p>We detected the following security event on your account:</p>
+
+<div class="warning-box">
+    <strong>{{ model.event_type }}</strong><br>
+    {{ model.event_description }}
+</div>
+
+<table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+    <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">When:</td>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">{{ model.timestamp | format_date: "MMMM dd, yyyy 'at' HH:mm:ss 'UTC'" }}</td>
+    </tr>
+    {% if model.ip_address %}
+    <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">IP Address:</td>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">{{ model.ip_address }}</td>
+    </tr>
+    {% endif %}
+    {% if model.location %}
+    <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Location:</td>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">{{ model.location }}</td>
+    </tr>
+    {% endif %}
+    {% if model.device_info %}
+    <tr>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">Device:</td>
+        <td style="padding: 8px 0; border-bottom: 1px solid #e5e7eb;">{{ model.device_info }}</td>
+    </tr>
+    {% endif %}
+</table>
+
+<p><strong>Was this you?</strong></p>
+<p>If you recognize this activity, no further action is needed.</p>
+<p>If you don't recognize this activity, please secure your account immediately by changing your password and reviewing your security settings.</p>

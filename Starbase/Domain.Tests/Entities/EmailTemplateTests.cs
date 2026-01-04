@@ -12,18 +12,31 @@ public class EmailTemplateTests
         // Arrange
         var key = "welcome_email";
         var subject = "Welcome!";
-        var body = "<p>Thanks for joining us!</p>";
-        var isHtml = true;
+        var htmlBody = "<p>Thanks for joining us!</p>";
 
         // Act
-        var template = new EmailTemplate(key, subject, body, isHtml);
+        var template = new EmailTemplate(key, subject, htmlBody);
 
         // Assert
         template.Key.Should().Be(key);
         template.Subject.Should().Be(subject);
-        template.Body.Should().Be(body);
-        template.IsHtml.Should().Be(isHtml);
+        template.HtmlBody.Should().Be(htmlBody);
+        template.IsActive.Should().BeTrue();
+        template.OrganizationId.Should().BeNull();
         template.Id.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void Constructor_WithOrganizationId_ShouldSetOrganization()
+    {
+        // Arrange
+        var organizationId = Guid.NewGuid();
+
+        // Act
+        var template = new EmailTemplate("key", "subject", "body", organizationId);
+
+        // Assert
+        template.OrganizationId.Should().Be(organizationId);
     }
 
     [Theory]
@@ -56,13 +69,13 @@ public class EmailTemplateTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData(" ")]
-    public void Constructor_WithInvalidBody_ShouldThrow(string? invalidBody)
+    public void Constructor_WithInvalidHtmlBody_ShouldThrow(string? invalidBody)
     {
         // Act
         var act = () => new EmailTemplate("key", "subject", invalidBody!);
 
         // Assert
-        act.Should().Throw<ArgumentNullException>().WithMessage("*body*");
+        act.Should().Throw<ArgumentNullException>().WithMessage("*htmlBody*");
     }
 
     [Fact]
@@ -76,7 +89,8 @@ public class EmailTemplateTests
 
         // Assert
         template.Subject.Should().Be("New Subject");
-        template.Body.Should().Be("New Body");
+        template.HtmlBody.Should().Be("New Body");
+        template.ModifiedAt.Should().NotBeNull();
     }
 
     [Theory]
@@ -96,5 +110,34 @@ public class EmailTemplateTests
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void SetActive_ShouldUpdateActiveState()
+    {
+        // Arrange
+        var template = new EmailTemplate("key", "subject", "body");
+        template.IsActive.Should().BeTrue();
+
+        // Act
+        template.SetActive(false);
+
+        // Assert
+        template.IsActive.Should().BeFalse();
+        template.ModifiedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void SetLayout_ShouldUpdateLayoutKey()
+    {
+        // Arrange
+        var template = new EmailTemplate("key", "subject", "body");
+
+        // Act
+        template.SetLayout("custom-layout");
+
+        // Assert
+        template.LayoutKey.Should().Be("custom-layout");
+        template.ModifiedAt.Should().NotBeNull();
     }
 }

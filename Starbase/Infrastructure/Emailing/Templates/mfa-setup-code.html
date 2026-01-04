@@ -1,0 +1,16 @@
+<p>You're setting up email-based multi-factor authentication for your account.</p>
+
+<p>Your verification code is:</p>
+
+<div class="code-box">
+    <span class="code">{{ model.code }}</span>
+</div>
+
+<p>Enter this code to complete your MFA setup. This code will expire in <strong>{{ model.expires_in_minutes }} minutes</strong>.</p>
+
+<div class="info-box">
+    <strong>What is MFA?</strong><br>
+    Multi-factor authentication adds an extra layer of security to your account. After setup, you'll need both your password and a verification code to sign in.
+</div>
+
+<p class="text-muted">If you didn't initiate this setup, please ignore this email or contact support.</p>
