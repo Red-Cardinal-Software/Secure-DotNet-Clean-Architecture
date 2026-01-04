@@ -1,6 +1,5 @@
 using Application.Common.Configuration;
 using Application.Common.Email;
-using static Application.Common.Email.EmailMaskingUtility;
 using Application.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -48,7 +47,7 @@ public class PostmarkEmailSender(
             {
                 logger.LogDebug(
                     "Postmark email sent to {Recipient}, MessageId: {MessageId}",
-                    MaskEmail(message.To),
+                    message.To,
                     response.MessageID);
 
                 return EmailSendResult.Succeeded(response.MessageID.ToString(), ProviderName);
@@ -56,7 +55,7 @@ public class PostmarkEmailSender(
 
             logger.LogWarning(
                 "Postmark returned error for email to {Recipient}: {ErrorCode} - {Message}",
-                MaskEmail(message.To),
+                message.To,
                 response.ErrorCode,
                 response.Message);
 
@@ -64,7 +63,7 @@ public class PostmarkEmailSender(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error sending email via Postmark to {Recipient}", MaskEmail(message.To));
+            logger.LogError(ex, "Error sending email via Postmark to {Recipient}", message.To);
             return EmailSendResult.Failed($"Postmark error: {ex.Message}", ProviderName);
         }
     }

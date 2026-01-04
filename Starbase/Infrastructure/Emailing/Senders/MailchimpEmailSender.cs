@@ -1,6 +1,5 @@
 using Application.Common.Configuration;
 using Application.Common.Email;
-using static Application.Common.Email.EmailMaskingUtility;
 using Application.Interfaces.Services;
 using Mandrill;
 using Mandrill.Model;
@@ -57,7 +56,7 @@ public class MailchimpEmailSender(
             {
                 logger.LogDebug(
                     "Mailchimp email sent to {Recipient}, MessageId: {MessageId}, Status: {Status}",
-                    MaskEmail(message.To),
+                    message.To,
                     result.Id,
                     result.Status);
 
@@ -66,7 +65,7 @@ public class MailchimpEmailSender(
 
             logger.LogWarning(
                 "Mailchimp returned error for email to {Recipient}: {Status} - {RejectReason}",
-                MaskEmail(message.To),
+                message.To,
                 result.Status,
                 result.RejectReason);
 
@@ -76,7 +75,7 @@ public class MailchimpEmailSender(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error sending email via Mailchimp to {Recipient}", MaskEmail(message.To));
+            logger.LogError(ex, "Error sending email via Mailchimp to {Recipient}", message.To);
             return EmailSendResult.Failed($"Mailchimp error: {ex.Message}", ProviderName);
         }
     }

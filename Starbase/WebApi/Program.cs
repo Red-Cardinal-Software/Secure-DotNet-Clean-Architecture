@@ -14,6 +14,7 @@ using Google.Cloud.SecretManager.V1;
 using Serilog.Sinks.GoogleCloudLogging;
 //#endif
 using DependencyInjectionConfiguration;
+using Infrastructure.Logging;
 using Infrastructure.Persistence;
 using Infrastructure.Web.Middleware;
 using Microsoft.EntityFrameworkCore;
@@ -135,7 +136,8 @@ if (builder.Environment.IsDevelopment())
 
 var loggerConfig = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
-    .Enrich.FromLogContext();
+    .Enrich.FromLogContext()
+    .Enrich.With<EmailMaskingEnricher>();
 
 // Only write to console in development - production should use configured sinks
 if (builder.Environment.IsDevelopment())

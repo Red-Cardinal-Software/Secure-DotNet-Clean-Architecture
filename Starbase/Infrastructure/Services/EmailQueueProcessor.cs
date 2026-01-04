@@ -1,6 +1,5 @@
 using Application.Common.Configuration;
 using Application.Common.Email;
-using static Application.Common.Email.EmailMaskingUtility;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
@@ -122,14 +121,14 @@ public class EmailQueueProcessor(
                     email.MarkSent(result.MessageId);
                     logger.LogInformation(
                         "Email sent successfully. Id={EmailId}, To={To}, MessageId={MessageId}",
-                        email.Id, MaskEmail(email.To), result.MessageId);
+                        email.Id, email.To, result.MessageId);
                 }
                 else
                 {
                     email.RecordFailure(result.ErrorMessage ?? "Unknown error");
                     logger.LogWarning(
                         "Email delivery failed. Id={EmailId}, To={To}, Attempt={Attempt}/{MaxAttempts}, Error={Error}",
-                        email.Id, MaskEmail(email.To), email.Attempts, email.MaxAttempts, result.ErrorMessage);
+                        email.Id, email.To, email.Attempts, email.MaxAttempts, result.ErrorMessage);
                 }
 
                 await unitOfWork.CommitAsync(cancellationToken);
@@ -139,7 +138,7 @@ public class EmailQueueProcessor(
             {
                 logger.LogError(ex,
                     "Unexpected error processing email. Id={EmailId}, To={To}",
-                    email.Id, MaskEmail(email.To));
+                    email.Id, email.To);
 
                 email.RecordFailure($"Exception: {ex.Message}");
                 await unitOfWork.CommitAsync(cancellationToken);

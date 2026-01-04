@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using Application.Common.Configuration;
 using Application.Common.Email;
-using static Application.Common.Email.EmailMaskingUtility;
 using Application.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -67,7 +66,7 @@ public class MailgunEmailSender : IEmailSender, IDisposable
 
                 _logger.LogDebug(
                     "Mailgun email sent to {Recipient}, MessageId: {MessageId}",
-                    MaskEmail(message.To),
+                    message.To,
                     messageId);
 
                 return EmailSendResult.Succeeded(messageId, ProviderName);
@@ -75,7 +74,7 @@ public class MailgunEmailSender : IEmailSender, IDisposable
 
             _logger.LogWarning(
                 "Mailgun returned error for email to {Recipient}: {StatusCode} - {Response}",
-                MaskEmail(message.To),
+                message.To,
                 response.StatusCode,
                 responseBody);
 
@@ -83,12 +82,12 @@ public class MailgunEmailSender : IEmailSender, IDisposable
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "HTTP error sending email via Mailgun to {Recipient}", MaskEmail(message.To));
+            _logger.LogError(ex, "HTTP error sending email via Mailgun to {Recipient}", message.To);
             return EmailSendResult.Failed($"Mailgun HTTP error: {ex.Message}", ProviderName);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending email via Mailgun to {Recipient}", MaskEmail(message.To));
+            _logger.LogError(ex, "Error sending email via Mailgun to {Recipient}", message.To);
             return EmailSendResult.Failed($"Mailgun error: {ex.Message}", ProviderName);
         }
     }

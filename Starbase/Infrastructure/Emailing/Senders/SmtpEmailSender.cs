@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Mail;
 using Application.Common.Configuration;
 using Application.Common.Email;
-using static Application.Common.Email.EmailMaskingUtility;
 using Application.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -47,7 +46,7 @@ public class SmtpEmailSender(
 
             logger.LogDebug(
                 "SMTP email sent to {Recipient} via {Host}:{Port}",
-                MaskEmail(message.To),
+                message.To,
                 _options.Smtp.Host,
                 _options.Smtp.Port);
 
@@ -57,12 +56,12 @@ public class SmtpEmailSender(
         }
         catch (SmtpException ex)
         {
-            logger.LogError(ex, "SMTP error sending email to {Recipient}", MaskEmail(message.To));
+            logger.LogError(ex, "SMTP error sending email to {Recipient}", message.To);
             return EmailSendResult.Failed($"SMTP error: {ex.Message}", ProviderName);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unexpected error sending SMTP email to {Recipient}", MaskEmail(message.To));
+            logger.LogError(ex, "Unexpected error sending SMTP email to {Recipient}", message.To);
             return EmailSendResult.Failed($"Unexpected error: {ex.Message}", ProviderName);
         }
     }

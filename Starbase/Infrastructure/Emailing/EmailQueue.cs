@@ -1,5 +1,3 @@
-using Application.Common.Email;
-using static Application.Common.Email.EmailMaskingUtility;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
@@ -43,7 +41,7 @@ public class EmailQueue(
 
         logger.LogInformation(
             "Email queued for delivery. Id: {EmailId}, To: {To}, Template: {TemplateKey}",
-            email.Id, MaskEmail(to), templateKey ?? "none");
+            email.Id, to, templateKey ?? "none");
 
         return email.Id;
     }

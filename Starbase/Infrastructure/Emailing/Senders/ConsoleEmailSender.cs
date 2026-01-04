@@ -1,5 +1,4 @@
 using Application.Common.Email;
-using static Application.Common.Email.EmailMaskingUtility;
 using Application.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 
@@ -43,7 +42,7 @@ public class ConsoleEmailSender(ILogger<ConsoleEmailSender> logger) : IEmailSend
 
             """,
             messageId,
-            MaskEmail(message.To),
+            message.To,
             message.Subject,
             message.HtmlBody,
             message.TextBody ?? "(auto-generated from HTML)");

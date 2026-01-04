@@ -3,7 +3,6 @@ using Amazon.SimpleEmailV2;
 using Amazon.SimpleEmailV2.Model;
 using Application.Common.Configuration;
 using Application.Common.Email;
-using static Application.Common.Email.EmailMaskingUtility;
 using Application.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -49,7 +48,7 @@ public class SesEmailSender(
 
             logger.LogDebug(
                 "SES email sent to {Recipient}, MessageId: {MessageId}",
-                MaskEmail(message.To),
+                message.To,
                 response.MessageId);
 
             return EmailSendResult.Succeeded(response.MessageId, ProviderName);
@@ -66,7 +65,7 @@ public class SesEmailSender(
         }
         catch (MessageRejectedException ex)
         {
-            logger.LogWarning(ex, "AWS SES rejected email to {Recipient}", MaskEmail(message.To));
+            logger.LogWarning(ex, "AWS SES rejected email to {Recipient}", message.To);
             return EmailSendResult.Failed($"Email rejected: {ex.Message}", ProviderName);
         }
         catch (SendingPausedException ex)
@@ -76,7 +75,7 @@ public class SesEmailSender(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error sending email via AWS SES to {Recipient}", MaskEmail(message.To));
+            logger.LogError(ex, "Error sending email via AWS SES to {Recipient}", message.To);
             return EmailSendResult.Failed($"SES error: {ex.Message}", ProviderName);
         }
     }

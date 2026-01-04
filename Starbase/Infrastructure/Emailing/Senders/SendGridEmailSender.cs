@@ -1,6 +1,5 @@
 using Application.Common.Configuration;
 using Application.Common.Email;
-using static Application.Common.Email.EmailMaskingUtility;
 using Application.Interfaces.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -53,7 +52,7 @@ public class SendGridEmailSender(
 
                 logger.LogDebug(
                     "SendGrid email sent to {Recipient}, MessageId: {MessageId}",
-                    MaskEmail(message.To),
+                    message.To,
                     messageId);
 
                 return EmailSendResult.Succeeded(messageId, ProviderName);
@@ -63,14 +62,14 @@ public class SendGridEmailSender(
             logger.LogWarning(
                 "SendGrid returned {StatusCode} for email to {Recipient}: {Body}",
                 response.StatusCode,
-                MaskEmail(message.To),
+                message.To,
                 body);
 
             return EmailSendResult.Failed($"SendGrid error: {response.StatusCode}", ProviderName);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error sending email via SendGrid to {Recipient}", MaskEmail(message.To));
+            logger.LogError(ex, "Error sending email via SendGrid to {Recipient}", message.To);
             return EmailSendResult.Failed($"SendGrid error: {ex.Message}", ProviderName);
         }
     }
