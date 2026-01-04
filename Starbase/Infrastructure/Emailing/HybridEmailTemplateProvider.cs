@@ -252,7 +252,6 @@ public class HybridEmailTemplateProvider : IEmailTemplateProvider
 
     private static IReadOnlyList<string> LoadEmbeddedTemplateKeys()
     {
-        var keys = new List<string>();
         var resources = ResourceAssembly.GetManifestResourceNames();
 
         var candidateKeys = resources
@@ -262,12 +261,8 @@ public class HybridEmailTemplateProvider : IEmailTemplateProvider
             .Where(r => r.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
             .Select(r => r[..^5]); // Remove ".html"
 
-        foreach (var key in candidateKeys)
-        {
-            if (!keys.Contains(key))
-                keys.Add(key);
-        }
-
-        return keys;
+        return candidateKeys
+            .Distinct()
+            .ToList();
     }
 }
