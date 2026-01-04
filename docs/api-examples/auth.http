@@ -1,0 +1,121 @@
+###############################################################################
+# Starbase API - Authentication
+#
+# VS Code: Install "REST Client" extension (humao.rest-client)
+# JetBrains: Built-in HTTP Client support
+#
+# Usage:
+# 1. Select environment in http-client.env.json
+# 2. Run "Initial Setup" first (only works once)
+# 3. Run "Login" to get tokens
+# 4. Copy accessToken to @token variable for authenticated requests
+###############################################################################
+
+@baseUrl = {{$dotenv baseUrl}}
+@username = {{$dotenv username}}
+@password = {{$dotenv password}}
+
+# After login, paste your access token here:
+@token = YOUR_ACCESS_TOKEN_HERE
+
+###############################################################################
+# Initial Setup (One-time only)
+###############################################################################
+
+### Initial Setup - Create first admin user
+# Only works when no users exist. Returns 404 after setup complete.
+POST {{baseUrl}}/api/v1/setup
+Content-Type: application/json
+
+{
+    "email": "{{username}}",
+    "password": "{{password}}",
+    "firstName": "Admin",
+    "lastName": "User"
+}
+
+###############################################################################
+# Login / Logout
+###############################################################################
+
+### Login
+# Returns JWT tokens or MFA challenge if MFA is enabled
+POST {{baseUrl}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+    "username": "{{username}}",
+    "password": "{{password}}"
+}
+
+### Logout
+# Invalidates the refresh token
+POST {{baseUrl}}/api/v1/auth/logout
+Content-Type: application/json
+
+{
+    "username": "{{username}}",
+    "refreshToken": "YOUR_REFRESH_TOKEN_HERE"
+}
+
+### Refresh Token
+# Get new access token using refresh token (implements token rotation)
+POST {{baseUrl}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{
+    "username": "{{username}}",
+    "refreshToken": "YOUR_REFRESH_TOKEN_HERE"
+}
+
+###############################################################################
+# Password Reset
+###############################################################################
+
+### Request Password Reset
+# Sends password reset email
+POST {{baseUrl}}/api/v1/auth/ResetPassword/user@example.com
+
+### Apply Password Reset
+# Use token from email to set new password
+POST {{baseUrl}}/api/v1/auth/ResetUserPassword
+Content-Type: application/json
+
+{
+    "token": "reset-token-from-email",
+    "password": "NewSecurePassword123!"
+}
+
+### Force Password Reset (Authenticated)
+# For users with forceResetPassword flag
+POST {{baseUrl}}/api/v1/auth/ForcePasswordReset
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+"NewSecurePassword123!"
+
+###############################################################################
+# MFA Authentication
+###############################################################################
+
+### Complete MFA Challenge
+# After login returns mfaRequired, complete the challenge
+# methodType: totp, email, webauthn, push, recovery
+POST {{baseUrl}}/api/v1/auth/mfa/complete
+Content-Type: application/json
+
+{
+    "challengeId": "CHALLENGE_ID_FROM_LOGIN",
+    "code": "123456",
+    "methodType": "totp"
+}
+
+### Complete MFA with Recovery Code
+POST {{baseUrl}}/api/v1/auth/mfa/complete
+Content-Type: application/json
+
+{
+    "challengeId": "CHALLENGE_ID_FROM_LOGIN",
+    "code": "ABCD-EFGH-IJKL",
+    "methodType": "recovery"
+}

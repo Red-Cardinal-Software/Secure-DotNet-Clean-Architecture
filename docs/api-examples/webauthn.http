@@ -1,0 +1,97 @@
+###############################################################################
+# Starbase API - WebAuthn (FIDO2)
+#
+# WebAuthn/FIDO2 credential management for passwordless authentication.
+# All endpoints require JWT authentication.
+#
+# Note: WebAuthn requires browser interaction. These examples show the API
+# structure, but actual registration/authentication requires JavaScript
+# WebAuthn API calls in a browser.
+###############################################################################
+
+@baseUrl = {{$dotenv baseUrl}}
+@token = YOUR_ACCESS_TOKEN_HERE
+@credentialId = YOUR_CREDENTIAL_ID_HERE
+
+###############################################################################
+# Registration
+###############################################################################
+
+### Start Registration
+# Returns PublicKeyCredentialCreationOptions for browser WebAuthn API
+# authenticatorType: "platform" (Touch ID, Windows Hello) or "cross-platform" (Security Key)
+POST {{baseUrl}}/api/v1/mfa/webauthn/register/start
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "authenticatorType": "platform"
+}
+
+### Complete Registration
+# Send attestation response from browser WebAuthn API
+# This is called automatically by your frontend after navigator.credentials.create()
+POST {{baseUrl}}/api/v1/mfa/webauthn/register/complete
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "id": "credential-id-base64url",
+    "rawId": "raw-id-base64url",
+    "type": "public-key",
+    "response": {
+        "attestationObject": "attestation-object-base64url",
+        "clientDataJSON": "client-data-json-base64url"
+    },
+    "name": "My Security Key"
+}
+
+###############################################################################
+# Authentication
+###############################################################################
+
+### Start Authentication
+# Returns PublicKeyCredentialRequestOptions for browser WebAuthn API
+POST {{baseUrl}}/api/v1/mfa/webauthn/authenticate/start
+Authorization: Bearer {{token}}
+
+### Complete Authentication
+# Send assertion response from browser WebAuthn API
+# This is called automatically by your frontend after navigator.credentials.get()
+POST {{baseUrl}}/api/v1/mfa/webauthn/authenticate/complete
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "id": "credential-id-base64url",
+    "rawId": "raw-id-base64url",
+    "type": "public-key",
+    "response": {
+        "authenticatorData": "authenticator-data-base64url",
+        "clientDataJSON": "client-data-json-base64url",
+        "signature": "signature-base64url",
+        "userHandle": "user-handle-base64url"
+    }
+}
+
+###############################################################################
+# Credential Management
+###############################################################################
+
+### List Credentials
+# Get all WebAuthn credentials for current user
+GET {{baseUrl}}/api/v1/mfa/webauthn/credentials
+Authorization: Bearer {{token}}
+
+### Update Credential Name
+PUT {{baseUrl}}/api/v1/mfa/webauthn/credentials/{{credentialId}}/name
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "name": "Office Security Key"
+}
+
+### Remove Credential
+DELETE {{baseUrl}}/api/v1/mfa/webauthn/credentials/{{credentialId}}
+Authorization: Bearer {{token}}

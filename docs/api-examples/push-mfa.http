@@ -1,0 +1,91 @@
+###############################################################################
+# Starbase API - Push MFA
+#
+# Push notification MFA for mobile app integration.
+# Requires JWT authentication except for challenge response.
+###############################################################################
+
+@baseUrl = {{$dotenv baseUrl}}
+@token = YOUR_ACCESS_TOKEN_HERE
+@deviceId = YOUR_DEVICE_ID_HERE
+@challengeId = YOUR_CHALLENGE_ID_HERE
+
+###############################################################################
+# Device Management
+###############################################################################
+
+### Register Device
+# Register a mobile device for push MFA
+POST {{baseUrl}}/api/v1/mfapush/register-device
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "deviceId": "unique-device-identifier",
+    "deviceName": "iPhone 15 Pro",
+    "platform": "iOS",
+    "pushToken": "apns-or-fcm-token",
+    "publicKey": "base64-encoded-public-key-for-challenge-signing"
+}
+
+### List Devices
+GET {{baseUrl}}/api/v1/mfapush/devices
+Authorization: Bearer {{token}}
+
+### Update Device Token
+# Update push token when it rotates
+PUT {{baseUrl}}/api/v1/mfapush/devices/{{deviceId}}/token
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "newToken": "new-apns-or-fcm-token"
+}
+
+### Remove Device
+DELETE {{baseUrl}}/api/v1/mfapush/devices/{{deviceId}}
+Authorization: Bearer {{token}}
+
+###############################################################################
+# Challenge Flow
+###############################################################################
+
+### Send Challenge
+# Send push notification to device during login
+POST {{baseUrl}}/api/v1/mfapush/challenge
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "sessionId": "login-session-id",
+    "deviceId": "{{deviceId}}",
+    "location": "New York, US"
+}
+
+### Check Challenge Status
+# Poll for challenge response (pending, approved, denied, expired)
+GET {{baseUrl}}/api/v1/mfapush/challenge/{{challengeId}}/status?sessionId=login-session-id
+Authorization: Bearer {{token}}
+
+### Respond to Challenge
+# Called by mobile app - no JWT required (uses cryptographic signature)
+POST {{baseUrl}}/api/v1/mfapush/challenge/{{challengeId}}/respond
+Content-Type: application/json
+
+{
+    "isApproved": true,
+    "signature": "cryptographic-signature-with-device-private-key",
+    "deviceId": "{{deviceId}}",
+    "context": "Approved from mobile app"
+}
+
+### Deny Challenge
+POST {{baseUrl}}/api/v1/mfapush/challenge/{{challengeId}}/respond
+Content-Type: application/json
+
+{
+    "isApproved": false,
+    "signature": "cryptographic-signature-with-device-private-key",
+    "deviceId": "{{deviceId}}",
+    "context": "User denied the request"
+}

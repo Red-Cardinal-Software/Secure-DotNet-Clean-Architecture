@@ -1,0 +1,99 @@
+###############################################################################
+# Starbase API - Audit Logging
+#
+# Query and verify audit logs for compliance and security monitoring.
+# Requires JWT authentication and Audit privileges.
+###############################################################################
+
+@baseUrl = {{$dotenv baseUrl}}
+@token = YOUR_ACCESS_TOKEN_HERE
+@userId = YOUR_USER_ID_HERE
+@archiveId = YOUR_ARCHIVE_ID_HERE
+
+###############################################################################
+# Query Audit Logs
+###############################################################################
+
+### Query Logs (Basic)
+# Requires: Audit.View privilege
+GET {{baseUrl}}/api/v1/audit/logs?pageNumber=1&pageSize=20
+Authorization: Bearer {{token}}
+
+### Query Logs with Filters
+GET {{baseUrl}}/api/v1/audit/logs?pageNumber=1&pageSize=50&entityType=AppUser&action=Update
+Authorization: Bearer {{token}}
+
+### Query Logs by Date Range
+GET {{baseUrl}}/api/v1/audit/logs?pageNumber=1&pageSize=50&fromDate=2024-01-01&toDate=2024-12-31
+Authorization: Bearer {{token}}
+
+### Query Logs - Full Filter Example
+GET {{baseUrl}}/api/v1/audit/logs?pageNumber=1&pageSize=100&entityType=AppUser&action=Update&fromDate=2024-01-01&toDate=2024-12-31
+Authorization: Bearer {{token}}
+
+###############################################################################
+# Entity History
+###############################################################################
+
+### Get Entity History - User
+# Get complete audit trail for a specific user
+GET {{baseUrl}}/api/v1/audit/entity/AppUser/{{userId}}
+Authorization: Bearer {{token}}
+
+### Get Entity History - Role
+GET {{baseUrl}}/api/v1/audit/entity/Role/ROLE_ID_HERE
+Authorization: Bearer {{token}}
+
+### Get Entity History - Organization
+GET {{baseUrl}}/api/v1/audit/entity/Organization/ORG_ID_HERE
+Authorization: Bearer {{token}}
+
+###############################################################################
+# User Activity
+###############################################################################
+
+### Get User Activity (All Time)
+GET {{baseUrl}}/api/v1/audit/user/{{userId}}
+Authorization: Bearer {{token}}
+
+### Get User Activity (Date Range)
+GET {{baseUrl}}/api/v1/audit/user/{{userId}}?fromDate=2024-01-01&toDate=2024-12-31
+Authorization: Bearer {{token}}
+
+### Get User Activity (Last 30 Days)
+# Adjust dates as needed
+GET {{baseUrl}}/api/v1/audit/user/{{userId}}?fromDate=2024-11-01&toDate=2024-12-01
+Authorization: Bearer {{token}}
+
+###############################################################################
+# Ledger Verification
+###############################################################################
+
+### Verify Ledger Integrity (Full)
+# Requires: Audit.Verify privilege
+# Checks hash chain and sequence gaps
+GET {{baseUrl}}/api/v1/audit/verify
+Authorization: Bearer {{token}}
+
+### Verify Ledger Integrity (Range)
+# Verify specific sequence range
+GET {{baseUrl}}/api/v1/audit/verify?fromSequence=1&toSequence=1000
+Authorization: Bearer {{token}}
+
+###############################################################################
+# Archives
+###############################################################################
+
+### List Archives
+# Requires: Audit.ViewArchives privilege
+GET {{baseUrl}}/api/v1/audit/archives
+Authorization: Bearer {{token}}
+
+### List Archives (Date Range)
+GET {{baseUrl}}/api/v1/audit/archives?fromDate=2024-01-01&toDate=2024-12-31
+Authorization: Bearer {{token}}
+
+### Verify Archive Integrity
+# Verify blob hash for archived partition
+GET {{baseUrl}}/api/v1/audit/archives/{{archiveId}}/verify
+Authorization: Bearer {{token}}
