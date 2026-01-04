@@ -36,6 +36,8 @@
       <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
       <PackageReference Include="QRCoder" Version="1.7.0" />
       <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.13.0" />
+      <PackageReference Include="OpenTelemetry" Version="1.14.0" />
+      <PackageReference Include="Serilog" Version="4.3.0" />
       <!-- Email subsystem packages (core - always included) -->
       <PackageReference Include="Fluid.Core" Version="2.11.1" />
       <PackageReference Include="HtmlAgilityPack" Version="1.11.72" />
