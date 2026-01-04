@@ -26,21 +26,15 @@ public class EmailMaskingEnricher : ILogEventEnricher
 
     public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
     {
-        var propertiesToUpdate = new List<LogEventProperty>();
+        var maskedProperties = logEvent.Properties
+            .Where(p => EmailPropertyNames.Contains(p.Key) &&
+                        p.Value is ScalarValue { Value: string })
+            .Select(p => propertyFactory.CreateProperty(
+                p.Key,
+                EmailMaskingUtility.MaskEmail(((ScalarValue)p.Value).Value as string ?? string.Empty)))
+            .ToList();
 
-        foreach (var property in logEvent.Properties)
-        {
-            if (EmailPropertyNames.Contains(property.Key) &&
-                property.Value is ScalarValue { Value: string email })
-            {
-                var maskedProperty = propertyFactory.CreateProperty(
-                    property.Key,
-                    EmailMaskingUtility.MaskEmail(email));
-                propertiesToUpdate.Add(maskedProperty);
-            }
-        }
-
-        foreach (var property in propertiesToUpdate)
+        foreach (var property in maskedProperties)
         {
             logEvent.AddOrUpdateProperty(property);
         }

@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Reflection;
 using Application.Common.Configuration;
 using Application.Interfaces.Repositories;
@@ -256,25 +255,17 @@ public class HybridEmailTemplateProvider : IEmailTemplateProvider
         var keys = new List<string>();
         var resources = ResourceAssembly.GetManifestResourceNames();
 
-        foreach (var resource in resources)
+        var candidateKeys = resources
+            .Where(r => r.StartsWith(TemplateResourcePrefix))
+            .Where(r => !r.StartsWith(LayoutResourcePrefix))
+            .Select(r => r[TemplateResourcePrefix.Length..])
+            .Where(r => r.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+            .Select(r => r[..^5]); // Remove ".html"
+
+        foreach (var key in candidateKeys)
         {
-            if (!resource.StartsWith(TemplateResourcePrefix))
-                continue;
-
-            // Skip layout files
-            if (resource.StartsWith(LayoutResourcePrefix))
-                continue;
-
-            // Extract template key from resource name
-            var relativePath = resource[TemplateResourcePrefix.Length..];
-
-            // Remove file extension and get base name
-            if (relativePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
-            {
-                var key = relativePath[..^5]; // Remove ".html"
-                if (!keys.Contains(key))
-                    keys.Add(key);
-            }
+            if (!keys.Contains(key))
+                keys.Add(key);
         }
 
         return keys;
