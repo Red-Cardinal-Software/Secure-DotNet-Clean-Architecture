@@ -92,7 +92,7 @@ public class SensitiveDataDestructuringPolicy : IDestructuringPolicy
             {
                 // Prefer the underlying getter exception when present
                 var root = (ex as TargetInvocationException)?.InnerException ?? ex;
-                
+
                 logEventProperties.Add(new LogEventProperty(prop.Name, new ScalarValue($"[ERROR READING: {root.GetType().Name}: {root.Message}")));
             }
         }
