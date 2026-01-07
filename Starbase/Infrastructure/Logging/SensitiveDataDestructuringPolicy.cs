@@ -86,10 +86,14 @@ public class SensitiveDataDestructuringPolicy : IDestructuringPolicy
 
                 logEventProperties.Add(new LogEventProperty(prop.Name, logValue));
             }
-            catch (Exception)
+            catch (Exception ex) when (
+                ex is TargetInvocationException or MethodAccessException or TargetException or ArgumentException or InvalidOperationException or NotSupportedException
+                )
             {
-                // If we can't read the property, skip it
-                logEventProperties.Add(new LogEventProperty(prop.Name, new ScalarValue("[ERROR READING]")));
+                // Prefer the underlying getter exception when present
+                var root = (ex as TargetInvocationException)?.InnerException ?? ex;
+                
+                logEventProperties.Add(new LogEventProperty(prop.Name, new ScalarValue($"[ERROR READING: {root.GetType().Name}: {root.Message}")));
             }
         }
 
