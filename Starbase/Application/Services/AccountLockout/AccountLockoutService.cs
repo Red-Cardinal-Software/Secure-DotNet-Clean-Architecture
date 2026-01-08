@@ -80,6 +80,12 @@ public class AccountLockoutService(
         }
 
         return wasLocked;
+    }, () =>
+    {
+        // Concurrency conflict - another request updated the lockout count simultaneously.
+        // The count was still incremented by the successful request, so return false
+        // and let the next attempt see the correct state.
+        return false;
     });
 
     /// <summary>

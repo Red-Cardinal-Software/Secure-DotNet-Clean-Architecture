@@ -30,7 +30,8 @@ internal class AccountLockoutConfiguration : EntityTypeConfiguration<AccountLock
 
         builder.Property(x => x.FailedAttemptCount)
             .IsRequired()
-            .HasDefaultValue(0);
+            .HasDefaultValue(0)
+            .IsConcurrencyToken();
 
         builder.Property(x => x.IsLockedOut)
             .IsRequired()

@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Application.Common.Configuration;
 using Application.Common.Constants;
+using Application.Common.Exceptions;
 using Application.Common.Factories;
 using Application.Common.Services;
 using Application.Common.Utilities;
@@ -298,6 +299,16 @@ public class AuthService(
             $"Token refresh failed for user: {user.Id}",
             reason: ServiceResponseConstants.UnableToGenerateRefreshToken);
         return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.UnableToGenerateRefreshToken);
+    }, () =>
+    {
+        // Token was claimed by a concurrent request - not theft, just a race
+        SecurityEvent.Session(logger,
+            SecurityEvent.Type.Access,
+            "token-refresh",
+            SecurityEvent.Outcome.Failure,
+            "Token already claimed by concurrent request",
+            reason: "Concurrency conflict");
+        return ServiceResponseFactory.Error<JwtResponseDto>(ServiceResponseConstants.RefreshTokenAlreadyClaimed);
     });
 
     /// <summary>
