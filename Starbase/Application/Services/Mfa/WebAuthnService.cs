@@ -51,16 +51,18 @@ public class WebAuthnService(
             // Set authenticator selection criteria
             var authenticatorSelection = new AuthenticatorSelection
             {
-                RequireResidentKey = false,
+                ResidentKey = ResidentKeyRequirement.Discouraged,
                 UserVerification = UserVerificationRequirement.Preferred
             };
 
             // Create credential creation options
-            var options = fido2.RequestNewCredential(
-                user,
-                excludeCredentials,
-                authenticatorSelection,
-                AttestationConveyancePreference.None);
+            var options = fido2.RequestNewCredential(new RequestNewCredentialParams
+            {
+                User = user,
+                ExcludeCredentials = excludeCredentials,
+                AuthenticatorSelection = authenticatorSelection,
+                AttestationPreference = AttestationConveyancePreference.None
+            });
 
             // Store challenge for verification
             var challengeKey = $"webauthn:reg:{Convert.ToBase64String(options.Challenge)}";
@@ -127,9 +129,9 @@ public class WebAuthnService(
             var fido2Response = new AuthenticatorAttestationRawResponse
             {
                 Type = PublicKeyCredentialType.PublicKey,
-                Id = Convert.FromBase64String(attestationResponse.RawId),
+                Id = attestationResponse.RawId,
                 RawId = Convert.FromBase64String(attestationResponse.RawId),
-                Response = new AuthenticatorAttestationRawResponse.ResponseData
+                Response = new AuthenticatorAttestationRawResponse.AttestationResponse
                 {
                     AttestationObject = Convert.FromBase64String(attestationResponse.Response.AttestationObject),
                     ClientDataJson = Convert.FromBase64String(attestationResponse.Response.ClientDataJSON)
@@ -137,20 +139,16 @@ public class WebAuthnService(
             };
 
             // Verify credential using Fido2 library
-            var success = await fido2.MakeNewCredentialAsync(
-                fido2Response,
-                storedChallenge.Options,
-                IsCredentialIdUniqueToUserAsync, cancellationToken: cancellationToken);
-
-            if (success.Status != "ok" || success.Result == null)
+            var registeredCredential = await fido2.MakeNewCredentialAsync(new MakeNewCredentialParams
             {
-                logger.LogWarning("WebAuthn registration failed for user {UserId}: {Error}", userId, success.ErrorMessage);
-                return ServiceResponseFactory.Error<WebAuthnRegistrationResultDto>(success.ErrorMessage ?? "Registration verification failed");
-            }
+                AttestationResponse = fido2Response,
+                OriginalOptions = storedChallenge.Options,
+                IsCredentialIdUniqueToUserCallback = IsCredentialIdUniqueToUserAsync
+            }, cancellationToken);
 
             // Extract credential information
-            var credentialIdBase64 = Convert.ToBase64String(success.Result.CredentialId);
-            var publicKeyBase64 = Convert.ToBase64String(success.Result.PublicKey);
+            var credentialIdBase64 = Convert.ToBase64String(registeredCredential.Id);
+            var publicKeyBase64 = Convert.ToBase64String(registeredCredential.PublicKey);
 
             // Check if credential already exists (double check)
             if (await credentialRepository.CredentialExistsAsync(credentialIdBase64, cancellationToken))
@@ -159,8 +157,8 @@ public class WebAuthnService(
             }
 
             // Determine authenticator type and transports
-            var authenticatorType = DetermineAuthenticatorType(success.Result);
-            var transports = ExtractTransports(success.Result);
+            var authenticatorType = DetermineAuthenticatorType(registeredCredential);
+            var transports = ExtractTransports(registeredCredential);
 
             // Create and store credential
             var credential = WebAuthnCredential.Create(
@@ -168,13 +166,13 @@ public class WebAuthnService(
                 userId,
                 credentialIdBase64,
                 publicKeyBase64,
-                success.Result.Counter,
+                registeredCredential.SignCount,
                 authenticatorType,
                 transports,
                 false, // Single device detection - simplified for now
                 credentialName ?? GetDefaultCredentialName(authenticatorType),
                 "none", // Simplified attestation format
-                success.Result.Aaguid.ToString(),
+                registeredCredential.AaGuid.ToString(),
                 ipAddress,
                 userAgent);
 
@@ -215,9 +213,11 @@ public class WebAuthnService(
                 .ToList();
 
             // Create assertion options
-            var options = fido2.GetAssertionOptions(
-                allowedCredentials,
-                UserVerificationRequirement.Preferred);
+            var options = fido2.GetAssertionOptions(new GetAssertionOptionsParams
+            {
+                AllowedCredentials = allowedCredentials,
+                UserVerification = UserVerificationRequirement.Preferred
+            });
 
             // Store challenge for verification
             var challengeKey = $"webauthn:auth:{Convert.ToBase64String(options.Challenge)}";
@@ -286,7 +286,7 @@ public class WebAuthnService(
             var fido2Response = new AuthenticatorAssertionRawResponse
             {
                 Type = PublicKeyCredentialType.PublicKey,
-                Id = Convert.FromBase64String(credentialId),
+                Id = credentialId,
                 RawId = Convert.FromBase64String(credentialId),
                 Response = new AuthenticatorAssertionRawResponse.AssertionResponse
                 {
@@ -303,28 +303,21 @@ public class WebAuthnService(
             var storedPublicKey = Convert.FromBase64String(credential.PublicKey);
 
             // Verify assertion using Fido2 library
-            var verificationResult = await fido2.MakeAssertionAsync(
-                fido2Response,
-                storedChallenge.Options,
-                storedPublicKey,
-                credential.SignCount,
-                IsUserHandleOwnerOfCredentialIdAsync, cancellationToken: cancellationToken);
-
-            if (verificationResult.Status != "ok")
+            var verificationResult = await fido2.MakeAssertionAsync(new MakeAssertionParams
             {
-                SecurityEvent.AuthFailure(logger, "webauthn-auth",
-                    $"WebAuthn authentication failed for user: {credential.UserId}",
-                    reason: verificationResult.ErrorMessage ?? "Authentication verification failed");
-                return ServiceResponseFactory.Error<WebAuthnAuthenticationResultDto>(
-                    verificationResult.ErrorMessage ?? "Authentication verification failed");
-            }
+                AssertionResponse = fido2Response,
+                OriginalOptions = storedChallenge.Options,
+                StoredPublicKey = storedPublicKey,
+                StoredSignatureCounter = credential.SignCount,
+                IsUserHandleOwnerOfCredentialIdCallback = IsUserHandleOwnerOfCredentialIdAsync
+            }, cancellationToken);
 
             // Update sign count and check for cloned authenticators
-            if (!credential.UpdateSignCount(verificationResult.Counter))
+            if (!credential.UpdateSignCount(verificationResult.SignCount))
             {
                 SecurityEvent.Threat(logger, "webauthn-auth",
                     $"Cloned authenticator detected for user: {credential.UserId}",
-                    reason: $"Sign count regression: previous={credential.SignCount}, received={verificationResult.Counter}");
+                    reason: $"Sign count regression: previous={credential.SignCount}, received={verificationResult.SignCount}");
                 return ServiceResponseFactory.Error<WebAuthnAuthenticationResultDto>("Security error: potential cloned authenticator");
             }
 
@@ -470,8 +463,8 @@ public class WebAuthnService(
             AttestationPreference = options.Attestation.ToString().ToLowerInvariant(),
             AuthenticatorSelection = new WebAuthnAuthenticatorSelection
             {
-                AuthenticatorAttachment = options.AuthenticatorSelection?.AuthenticatorAttachment?.ToString()?.ToLowerInvariant(),
-                RequireResidentKey = options.AuthenticatorSelection?.RequireResidentKey ?? false,
+                AuthenticatorAttachment = options.AuthenticatorSelection?.AuthenticatorAttachment?.ToString().ToLowerInvariant(),
+                RequireResidentKey = options.AuthenticatorSelection?.ResidentKey == ResidentKeyRequirement.Required,
                 UserVerification = "preferred" // Simplified user verification
             },
             ExcludeCredentials = options.ExcludeCredentials?
@@ -510,7 +503,7 @@ public class WebAuthnService(
     /// <summary>
     /// Determines authenticator type from credential creation result.
     /// </summary>
-    private static AuthenticatorType DetermineAuthenticatorType(AttestationVerificationSuccess _)
+    private static AuthenticatorType DetermineAuthenticatorType(RegisteredPublicKeyCredential _)
     {
         // This is a simplified determination - in a full implementation you might want to:
         // 1. Check the AAGUID against known platform authenticators
@@ -526,7 +519,7 @@ public class WebAuthnService(
     /// <summary>
     /// Extracts transport information from credential.
     /// </summary>
-    private static DomainAuthenticatorTransport[] ExtractTransports(AttestationVerificationSuccess _)
+    private static DomainAuthenticatorTransport[] ExtractTransports(RegisteredPublicKeyCredential _)
     {
         // Default transports - in a full implementation you might extract this from
         // the attestation object or use other heuristics
