@@ -5,7 +5,6 @@ using Application.Interfaces.Repositories;
 using Application.DTOs.Users;
 using Application.Services.AppUser;
 using Application.Interfaces.Mappers;
-using Application.Logging;
 using Application.Common.Utilities;
 using Application.Common.Constants;
 using Domain.Entities.Identity;
@@ -32,9 +31,8 @@ namespace Application.Tests.ServiceTests
 
         public AppUserServiceTests()
         {
-            var logger = new LogContextHelper<AppUserService>(_loggerMock.Object);
             _claimsUser = ClaimsPrincipalFactory.CreateClaim(TestConstants.Ids.OrganizationId, Guid.NewGuid());
-            _service = new AppUserService(_userRepoMock.Object, _unitOfWorkMock.Object, _mapperMock.Object, _passwordValidatorMock.Object, logger);
+            _service = new AppUserService(_userRepoMock.Object, _unitOfWorkMock.Object, _mapperMock.Object, _passwordValidatorMock.Object, _loggerMock.Object);
         }
 
         [Fact]

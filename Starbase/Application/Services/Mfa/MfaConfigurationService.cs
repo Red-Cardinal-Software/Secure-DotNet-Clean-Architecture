@@ -9,6 +9,7 @@ using Application.Interfaces.Persistence;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Security;
 using Application.Interfaces.Services;
+using Application.Logging;
 using Application.Models;
 using Domain.Entities.Security;
 using Microsoft.Extensions.Logging;
@@ -103,7 +104,9 @@ public class MfaConfigurationService(
         // Validate the TOTP code
         if (!totpProvider.ValidateCode(mfaMethod.Secret!, verificationDto.Code))
         {
-            logger.LogWarning("TOTP verification failed for user {UserId}", userId);
+            SecurityEvent.AuthFailure(logger, "totp-setup",
+                $"TOTP setup verification failed for user: {userId}",
+                reason: "Invalid verification code during setup");
             return ServiceResponseFactory.Error<MfaSetupCompleteDto>("Invalid verification code");
         }
 
@@ -135,8 +138,12 @@ public class MfaConfigurationService(
         // Get the recovery codes that were just generated
         var recoveryCodes = mfaMethod.GetNewRecoveryCodes();
 
-        logger.LogInformation("TOTP setup completed for user {UserId}, method {MethodId}",
-            userId, mfaMethod.Id);
+        SecurityEvent.Log(logger,
+            SecurityEvent.Category.Iam,
+            SecurityEvent.Type.Creation,
+            "totp-setup",
+            SecurityEvent.Outcome.Success,
+            $"TOTP MFA method enabled for user: {userId}");
 
         return ServiceResponseFactory.Success(new MfaSetupCompleteDto
         {
@@ -255,7 +262,9 @@ public class MfaConfigurationService(
         // Verify the provided code against the stored hashed code
         if (!passwordHasher.Verify(verificationDto.Code, storedHashedCode))
         {
-            logger.LogWarning("Invalid email setup verification code for user {UserId}", userId);
+            SecurityEvent.AuthFailure(logger, "email-mfa-setup",
+                $"Email MFA setup verification failed for user: {userId}",
+                reason: "Invalid verification code during setup");
             return ServiceResponseFactory.Error<MfaSetupCompleteDto>("Invalid verification code");
         }
 
@@ -290,8 +299,12 @@ public class MfaConfigurationService(
         // Get the recovery codes that were just generated
         var recoveryCodes = mfaMethod.GetNewRecoveryCodes();
 
-        logger.LogInformation("Email MFA setup completed for user {UserId}, method {MethodId}",
-            userId, mfaMethod.Id);
+        SecurityEvent.Log(logger,
+            SecurityEvent.Category.Iam,
+            SecurityEvent.Type.Creation,
+            "email-mfa-setup",
+            SecurityEvent.Outcome.Success,
+            $"Email MFA method enabled for user: {userId}");
 
         return ServiceResponseFactory.Success(new MfaSetupCompleteDto
         {
@@ -392,7 +405,12 @@ public class MfaConfigurationService(
                 var enabledCount = await mfaMethodRepository.GetEnabledCountByUserIdAsync(userId, cancellationToken);
                 if (enabledCount == 1)
                 {
-                    logger.LogWarning("Last MFA method disabled for user {UserId}", userId);
+                    SecurityEvent.Log(logger,
+                        SecurityEvent.Category.Iam,
+                        SecurityEvent.Type.Deletion,
+                        "mfa-disable",
+                        SecurityEvent.Outcome.Success,
+                        $"Last MFA method disabled for user: {userId}");
                 }
 
                 method.Disable();
@@ -471,7 +489,12 @@ public class MfaConfigurationService(
 
         mfaMethodRepository.Remove(method);
 
-        logger.LogInformation("MFA method {MethodId} removed for user {UserId}", methodId, userId);
+        SecurityEvent.Log(logger,
+            SecurityEvent.Category.Iam,
+            SecurityEvent.Type.Deletion,
+            "mfa-remove",
+            SecurityEvent.Outcome.Success,
+            $"MFA method {method.Type} removed for user: {userId}");
         return ServiceResponseFactory.Success(true);
     });
 

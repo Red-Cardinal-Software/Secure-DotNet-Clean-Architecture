@@ -5,7 +5,6 @@ using Application.Interfaces.Providers;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Security;
 using Application.Interfaces.Services;
-using Application.Logging;
 using Application.Services.Auth;
 using Domain.Entities.Identity;
 using FluentAssertions;
@@ -40,8 +39,6 @@ public class AuthServiceTests
 
     public AuthServiceTests()
     {
-        var logger = new LogContextHelper<AuthService>(_mockLogger.Object);
-
         // Create AppOptions for the test
         var appOptions = new AppOptions
         {
@@ -86,7 +83,7 @@ public class AuthServiceTests
             _mfaAuthenticationService.Object,
             _signingKeyProvider.Object,
             _mediator.Object,
-            logger,
+            _mockLogger.Object,
             mockAppOptions.Object
         );
     }
