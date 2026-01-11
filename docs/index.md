@@ -75,6 +75,15 @@ The goal is to make it easier for teams to start secure rather than attempting t
 
 See the [Getting Started](getting-started.md) guide for installation and first run instructions.
 
+## API Examples
+
+Ready-to-use API examples for testing and exploring endpoints:
+
+- **[Postman Collection](api-examples/Starbase.postman_collection.json)** — Import into Postman for interactive testing
+- **[.http Files](api-examples/)** — Use with VS Code REST Client or JetBrains IDEs
+
+See the [API Examples README](api-examples/README.md) for setup instructions.
+
 ## License
 
 This project is licensed under the MIT License.

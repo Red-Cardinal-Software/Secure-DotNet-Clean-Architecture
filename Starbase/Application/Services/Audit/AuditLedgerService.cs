@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Application.Common.Factories;
 using Application.Common.Services;
 using Application.DTOs.Audit;
 using Application.Interfaces.Persistence;
@@ -36,19 +37,10 @@ public class AuditLedgerService(
         var result = await RecordBatchAsync([entry]);
         if (!result.Success || result.Data == null || result.Data.Count == 0)
         {
-            return new ServiceResponse<AuditEntryDto>
-            {
-                Success = false,
-                Message = result.Message,
-                Status = result.Status
-            };
+            return ServiceResponseFactory.Error<AuditEntryDto>(result.Message, result.Status);
         }
 
-        return new ServiceResponse<AuditEntryDto>
-        {
-            Success = true,
-            Data = result.Data[0]
-        };
+        return ServiceResponseFactory.Success(result.Data[0]);
     }
 
     /// <inheritdoc />
@@ -62,11 +54,7 @@ public class AuditLedgerService(
                 var entryList = entries.ToList();
                 if (entryList.Count == 0)
                 {
-                    return new ServiceResponse<List<AuditEntryDto>>
-                    {
-                        Success = true,
-                        Data = []
-                    };
+                    return ServiceResponseFactory.Success(new List<AuditEntryDto>());
                 }
 
                 var nextSequence = await repository.GetNextSequenceNumberAsync();
@@ -96,11 +84,7 @@ public class AuditLedgerService(
                     ledgerEntries.First().SequenceNumber,
                     ledgerEntries.Last().SequenceNumber);
 
-                return new ServiceResponse<List<AuditEntryDto>>
-                {
-                    Success = true,
-                    Data = mapper.Map<List<AuditEntryDto>>(ledgerEntries)
-                };
+                return ServiceResponseFactory.Success(mapper.Map<List<AuditEntryDto>>(ledgerEntries));
             });
         }
         finally
@@ -121,17 +105,13 @@ public class AuditLedgerService(
             skip,
             pageSize);
 
-        return new ServiceResponse<PagedResult<AuditEntryDto>>
+        return ServiceResponseFactory.Success(new PagedResult<AuditEntryDto>
         {
-            Success = true,
-            Data = new PagedResult<AuditEntryDto>
-            {
-                Items = mapper.Map<List<AuditEntryDto>>(items),
-                TotalCount = totalCount,
-                Page = page,
-                PageSize = pageSize
-            }
-        };
+            Items = mapper.Map<List<AuditEntryDto>>(items),
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        });
     }
 
     /// <inheritdoc />
@@ -143,11 +123,7 @@ public class AuditLedgerService(
             0,
             1000);
 
-        return new ServiceResponse<List<AuditEntryDto>>
-        {
-            Success = true,
-            Data = mapper.Map<List<AuditEntryDto>>(items)
-        };
+        return ServiceResponseFactory.Success(mapper.Map<List<AuditEntryDto>>(items));
     }
 
     /// <inheritdoc />
@@ -169,11 +145,7 @@ public class AuditLedgerService(
             0,
             1000);
 
-        return new ServiceResponse<List<AuditEntryDto>>
-        {
-            Success = true,
-            Data = mapper.Map<List<AuditEntryDto>>(items)
-        };
+        return ServiceResponseFactory.Success(mapper.Map<List<AuditEntryDto>>(items));
     }
 
     /// <inheritdoc />
@@ -185,17 +157,13 @@ public class AuditLedgerService(
 
         if (minSeq == 0 && maxSeq == 0)
         {
-            return new ServiceResponse<LedgerVerificationResult>
+            return ServiceResponseFactory.Success(new LedgerVerificationResult
             {
-                Success = true,
-                Data = new LedgerVerificationResult
-                {
-                    IsValid = true,
-                    EntriesVerified = 0,
-                    FirstSequence = 0,
-                    LastSequence = 0
-                }
-            };
+                IsValid = true,
+                EntriesVerified = 0,
+                FirstSequence = 0,
+                LastSequence = 0
+            });
         }
 
         var start = fromSequence ?? minSeq;
@@ -258,22 +226,14 @@ public class AuditLedgerService(
                 issues.Count);
         }
 
-        return new ServiceResponse<LedgerVerificationResult>
-        {
-            Success = true,
-            Data = result
-        };
+        return ServiceResponseFactory.Success(result);
     }
 
     /// <inheritdoc />
     public async Task<ServiceResponse<List<AuditEntryDto>>> GetUndispatchedAsync(int batchSize = 100)
     {
         var entries = await repository.GetUndispatchedAsync(batchSize);
-        return new ServiceResponse<List<AuditEntryDto>>
-        {
-            Success = true,
-            Data = mapper.Map<List<AuditEntryDto>>(entries)
-        };
+        return ServiceResponseFactory.Success(mapper.Map<List<AuditEntryDto>>(entries));
     }
 
     /// <inheritdoc />
@@ -282,11 +242,7 @@ public class AuditLedgerService(
         return await RunWithCommitAsync(async () =>
         {
             await repository.MarkDispatchedAsync(sequenceNumbers);
-            return new ServiceResponse<bool>
-            {
-                Success = true,
-                Data = true
-            };
+            return ServiceResponseFactory.Success(true);
         });
     }
 

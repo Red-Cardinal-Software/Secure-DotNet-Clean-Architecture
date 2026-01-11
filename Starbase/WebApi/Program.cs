@@ -14,6 +14,7 @@ using Google.Cloud.SecretManager.V1;
 using Serilog.Sinks.GoogleCloudLogging;
 //#endif
 using DependencyInjectionConfiguration;
+using Elastic.CommonSchema.Serilog;
 using Infrastructure.Logging;
 using Infrastructure.Persistence;
 using Infrastructure.Web.Middleware;
@@ -137,12 +138,24 @@ if (builder.Environment.IsDevelopment())
 var loggerConfig = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
-    .Enrich.With<EmailMaskingEnricher>();
+    .Enrich.With<EmailMaskingEnricher>()
+    .Enrich.WithMachineName()
+    .Enrich.WithProcessId()
+    .Enrich.WithProcessName()
+    .Enrich.WithEnvironmentName()
+    .Destructure.With<SensitiveDataDestructuringPolicy>();
+    
 
 // Only write to console in development - production should use configured sinks
+// Use ECS (Elastic Common Schema) format for SIEM compatibility
 if (builder.Environment.IsDevelopment())
 {
+    // Development: Human-readable console + ECS JSON file for testing SIEM integration
     loggerConfig.WriteTo.Console();
+    loggerConfig.WriteTo.File(
+        new EcsTextFormatter(),
+        "logs/ecs-.json",
+        rollingInterval: RollingInterval.Day);
 }
 else
 {

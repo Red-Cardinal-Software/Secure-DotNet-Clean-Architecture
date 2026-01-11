@@ -1,0 +1,87 @@
+###############################################################################
+# Starbase API - Health Checks
+#
+# Health endpoints for monitoring, load balancers, and Kubernetes probes.
+# Most endpoints are public (no authentication required).
+###############################################################################
+
+@baseUrl = {{$dotenv baseUrl}}
+@token = YOUR_ACCESS_TOKEN_HERE
+
+###############################################################################
+# Public Health Endpoints
+###############################################################################
+
+### Basic Health Check
+# For load balancers and simple monitoring
+# Returns 200 if healthy, 503 if unhealthy
+GET {{baseUrl}}/api/health
+
+### Detailed Health Check
+# More information but excludes privileged checks
+# Returns individual component status
+GET {{baseUrl}}/api/health/detailed
+
+###############################################################################
+# Kubernetes Probes
+###############################################################################
+
+### Liveness Probe
+# Always returns 200 if application is running
+# Use for Kubernetes livenessProbe
+GET {{baseUrl}}/api/health/live
+
+### Readiness Probe
+# Returns 200 if ready to accept traffic, 503 if not
+# Checks database connectivity and other dependencies
+# Use for Kubernetes readinessProbe
+GET {{baseUrl}}/api/health/ready
+
+###############################################################################
+# Admin Health Endpoints
+###############################################################################
+
+### System Health (Admin)
+# Requires: SystemAdministration.Metrics privilege
+# Returns complete health report including:
+# - Database status
+# - Memory usage
+# - Cache status
+# - All component details
+GET {{baseUrl}}/api/health/system
+Authorization: Bearer {{token}}
+
+###############################################################################
+# Example Kubernetes Configuration
+###############################################################################
+#
+# livenessProbe:
+#   httpGet:
+#     path: /api/health/live
+#     port: 8080
+#   initialDelaySeconds: 10
+#   periodSeconds: 30
+#   failureThreshold: 3
+#
+# readinessProbe:
+#   httpGet:
+#     path: /api/health/ready
+#     port: 8080
+#   initialDelaySeconds: 5
+#   periodSeconds: 10
+#   failureThreshold: 3
+#
+###############################################################################
+
+###############################################################################
+# Example Docker Health Check
+###############################################################################
+#
+# healthcheck:
+#   test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/health/live"]
+#   interval: 30s
+#   timeout: 10s
+#   retries: 3
+#   start_period: 10s
+#
+###############################################################################

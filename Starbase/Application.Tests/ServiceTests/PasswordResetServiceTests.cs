@@ -1,7 +1,6 @@
 using Application.Common.Constants;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Security;
-using Application.Logging;
 using Application.Services.PasswordReset;
 using Domain.Entities.Identity;
 using FluentAssertions;
@@ -26,13 +25,11 @@ public class PasswordResetServiceTests
     private readonly PasswordResetService _passwordResetService;
     public PasswordResetServiceTests()
     {
-        var logger = new LogContextHelper<PasswordResetService>(_mockLogger.Object);
-
         _passwordResetService = new PasswordResetService(
             _passwordResetTokenRepository.Object,
             _passwordHasher.Object,
             _appUserRepository.Object,
-            logger,
+            _mockLogger.Object,
             _passwordValidator.Object
         );
     }

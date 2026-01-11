@@ -4,6 +4,7 @@ using Application.DTOs.Email;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Security;
 using Application.Interfaces.Services;
+using Application.Logging;
 using Domain.Entities.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -38,8 +39,9 @@ public class MfaEmailService(
             var rateLimitResult = await CheckRateLimitAsync(userId, cancellationToken);
             if (!rateLimitResult.IsAllowed)
             {
-                logger.LogWarning("Email MFA rate limit exceeded for user {UserId}. Used: {Used}/{Max}",
-                    userId, rateLimitResult.CodesUsed, rateLimitResult.MaxCodesAllowed);
+                SecurityEvent.Threat(logger, "email-mfa-send",
+                    $"Email MFA rate limit exceeded for user: {userId}",
+                    reason: $"Codes used: {rateLimitResult.CodesUsed}/{rateLimitResult.MaxCodesAllowed}");
 
                 return MfaEmailSendResult.Failed(
                     $"Too many email codes requested. Try again after {rateLimitResult.WindowResetTime:HH:mm}");
@@ -94,7 +96,9 @@ public class MfaEmailService(
             // Record the attempt
             if (!emailCode.RecordAttempt())
             {
-                logger.LogWarning("Maximum attempts exceeded for challenge {ChallengeId}", challengeId);
+                SecurityEvent.Threat(logger, "email-mfa-verify",
+                    $"Email MFA max attempts exceeded for user: {emailCode.UserId}",
+                    reason: "Potential brute force attack");
                 return MfaEmailVerificationResult.Failed("Maximum attempts exceeded.", 0);
             }
 
@@ -103,12 +107,18 @@ public class MfaEmailService(
             if (isValid)
             {
                 emailCode.MarkAsUsed();
-                logger.LogInformation("Email MFA code verified successfully for challenge {ChallengeId}", challengeId);
+                SecurityEvent.Log(logger,
+                    SecurityEvent.Category.Authentication,
+                    SecurityEvent.Type.Info,
+                    "email-mfa-verify",
+                    SecurityEvent.Outcome.Success,
+                    $"Email MFA code verified successfully for user: {emailCode.UserId}");
                 return MfaEmailVerificationResult.Successful();
             }
 
-            logger.LogWarning("Invalid email MFA code attempt for challenge {ChallengeId}. Attempts: {Attempts}",
-                challengeId, emailCode.AttemptCount);
+            SecurityEvent.AuthFailure(logger, "email-mfa-verify",
+                $"Invalid email MFA code attempt for user: {emailCode.UserId}",
+                reason: $"Attempts: {emailCode.AttemptCount}");
 
             var remainingAttempts = emailCode.GetRemainingAttempts();
             var errorMessage = remainingAttempts > 0

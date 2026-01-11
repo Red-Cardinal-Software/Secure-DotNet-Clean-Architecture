@@ -7,6 +7,7 @@ using Application.Logging;
 using Application.Models;
 using Domain.Entities.Identity;
 using FluentValidation;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Services.PasswordReset;
 
@@ -14,7 +15,7 @@ public class PasswordResetService(
     IPasswordResetTokenRepository passwordResetTokenRepository,
     IPasswordHasher passwordHasher,
     IAppUserRepository appUserRepository,
-    LogContextHelper<PasswordResetService> logger,
+    ILogger<PasswordResetService> logger,
     IValidator<string> passwordValidator)
     : IPasswordResetService
 {
@@ -23,44 +24,39 @@ public class PasswordResetService(
         var parsedTokenId = TryParseToken(token);
         if (parsedTokenId is null)
         {
-            logger.Critical(new StructuredLogBuilder()
-                .SetAction(PasswordResetActions.ResetPassword)
-                .SetStatus(LogStatuses.Failure)
-                .SetEntity(nameof(PasswordResetToken))
-                .SetDetail(ServiceResponseConstants.TokenNotFound));
+            SecurityEvent.AuthFailure(logger, "password-reset",
+                "Password reset failed: invalid token format",
+                reason: ServiceResponseConstants.TokenNotFound);
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.TokenNotFound);
         }
 
         var tokenEntity = await passwordResetTokenRepository.GetPasswordResetTokenAsync(parsedTokenId.Value);
         if (tokenEntity is null)
         {
-            logger.Critical(new StructuredLogBuilder()
-                .SetAction(PasswordResetActions.ResetPassword)
-                .SetStatus(LogStatuses.Failure)
-                .SetEntity(nameof(PasswordResetToken))
-                .SetDetail(ServiceResponseConstants.InvalidPasswordResetToken));
+            SecurityEvent.AuthFailure(logger, "password-reset",
+                "Password reset failed: token not found",
+                reason: ServiceResponseConstants.InvalidPasswordResetToken);
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.InvalidPasswordResetToken);
         }
 
         if (tokenEntity.IsClaimed())
         {
-            logger.Critical(new StructuredLogBuilder()
-                .SetType(LogTypes.Security.Threat)
-                .SetAction(PasswordResetActions.ResetPassword)
-                .SetStatus(LogStatuses.Failure)
-                .SetEntity(nameof(PasswordResetToken))
-                .SetDetail(ServiceResponseConstants.EmailPasswordResetSent));
+            SecurityEvent.Threat(logger, "password-reset-reuse",
+                "Attempted reuse of already claimed password reset token",
+                reason: "Token already claimed");
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.InvalidPasswordResetToken);
         }
 
         var validationResult = await passwordValidator.ValidateAsync(password);
         if (!validationResult.IsValid)
         {
-            logger.Warning(new StructuredLogBuilder()
-                .SetAction(PasswordResetActions.ResetPassword)
-                .SetStatus(LogStatuses.Failure)
-                .SetEntity(nameof(PasswordResetToken))
-                .SetDetail(validationResult.Errors.First().ErrorMessage));
+            SecurityEvent.Log(logger,
+                SecurityEvent.Category.Authentication,
+                SecurityEvent.Type.Change,
+                "password-reset",
+                SecurityEvent.Outcome.Failure,
+                "Password reset failed: password validation failed",
+                reason: validationResult.Errors.First().ErrorMessage);
             return ServiceResponseFactory.Error<bool>(validationResult.Errors.First().ErrorMessage);
         }
 
@@ -72,10 +68,12 @@ public class PasswordResetService(
             unclaimedToken.ClaimRedundantToken(claimedByIpAddress);
         }
 
-        logger.Info(new StructuredLogBuilder()
-            .SetAction(PasswordResetActions.ResetPassword)
-            .SetStatus(LogStatuses.Success)
-            .SetEntity(nameof(PasswordResetToken)));
+        SecurityEvent.Log(logger,
+            SecurityEvent.Category.Authentication,
+            SecurityEvent.Type.Change,
+            "password-reset",
+            SecurityEvent.Outcome.Success,
+            $"Password reset completed for user: {tokenEntity.AppUserId}");
 
         return ServiceResponseFactory.Success(true);
     }
@@ -86,23 +84,17 @@ public class PasswordResetService(
 
         if (thisUser is null)
         {
-            logger.Critical(new StructuredLogBuilder()
-                .SetType(LogTypes.Security.Threat)
-                .SetAction(PasswordResetActions.ResetPassword)
-                .SetStatus(LogStatuses.Failure)
-                .SetEntity(nameof(PasswordResetToken))
-                .SetDetail(ServiceResponseConstants.UserNotFound));
+            SecurityEvent.Threat(logger, "force-password-reset",
+                $"Force password reset attempt for non-existent user: {userId}",
+                reason: ServiceResponseConstants.UserNotFound);
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.UserNotFound);
         }
 
         if (!thisUser.ForceResetPassword)
         {
-            logger.Critical(new StructuredLogBuilder()
-                .SetType(LogTypes.Security.Threat)
-                .SetAction(PasswordResetActions.ResetPassword)
-                .SetStatus(LogStatuses.Failure)
-                .SetEntity(nameof(PasswordResetToken))
-                .SetDetail(ServiceResponseConstants.UserNotRequiredToResetPassword));
+            SecurityEvent.Threat(logger, "force-password-reset",
+                $"Force password reset attempt for user not required to reset: {userId}",
+                reason: ServiceResponseConstants.UserNotRequiredToResetPassword);
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.UserUnauthorized);
         }
 
@@ -110,21 +102,25 @@ public class PasswordResetService(
 
         if (!validationResult.IsValid)
         {
-            logger.Warning(new StructuredLogBuilder()
-                .SetAction(PasswordResetActions.ResetPassword)
-                .SetStatus(LogStatuses.Failure)
-                .SetEntity(nameof(PasswordResetToken))
-                .SetDetail(validationResult.Errors.First().ErrorMessage));
+            SecurityEvent.Log(logger,
+                SecurityEvent.Category.Authentication,
+                SecurityEvent.Type.Change,
+                "force-password-reset",
+                SecurityEvent.Outcome.Failure,
+                "Force password reset failed: password validation failed",
+                reason: validationResult.Errors.First().ErrorMessage);
             return ServiceResponseFactory.Error<bool>(validationResult.Errors.First().ErrorMessage);
         }
 
         if (passwordHasher.Verify(newPassword, thisUser.Password))
         {
-            logger.Warning(new StructuredLogBuilder()
-                .SetAction(PasswordResetActions.ResetPassword)
-                .SetStatus(LogStatuses.Failure)
-                .SetEntity(nameof(PasswordResetToken))
-                .SetDetail(ServiceResponseConstants.PasswordMustBeDifferentFromCurrent));
+            SecurityEvent.Log(logger,
+                SecurityEvent.Category.Authentication,
+                SecurityEvent.Type.Change,
+                "force-password-reset",
+                SecurityEvent.Outcome.Failure,
+                "Force password reset failed: new password same as current",
+                reason: ServiceResponseConstants.PasswordMustBeDifferentFromCurrent);
             return ServiceResponseFactory.Error<bool>(ServiceResponseConstants.PasswordMustBeDifferentFromCurrent);
         }
 
@@ -132,11 +128,12 @@ public class PasswordResetService(
 
         thisUser.ChangePassword(hashedPassword);
 
-        logger.Info(new StructuredLogBuilder()
-            .SetAction(PasswordResetActions.ResetPassword)
-            .SetStatus(LogStatuses.Success)
-            .SetEntity(nameof(PasswordResetToken))
-        );
+        SecurityEvent.Log(logger,
+            SecurityEvent.Category.Authentication,
+            SecurityEvent.Type.Change,
+            "force-password-reset",
+            SecurityEvent.Outcome.Success,
+            $"Force password reset completed for user: {thisUser.Username}");
 
         return ServiceResponseFactory.Success(true);
     }

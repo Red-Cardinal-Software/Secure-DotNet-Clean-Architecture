@@ -52,6 +52,7 @@ using Infrastructure.Providers;
 using Infrastructure.Services;
 using Infrastructure.Services.Development;
 using Infrastructure.Security.SigningKey;
+using Infrastructure.Telemetry;
 using MediatR;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
@@ -465,7 +466,7 @@ public static class ServiceCollectionExtensions
 
     /// <summary>
     /// Configures core infrastructure dependencies required by the application.
-    /// This includes services such as HttpContextAccessor, logging, and scoped LogContextHelper for improved logging capabilities.
+    /// This includes services such as HttpContextAccessor and logging.
     /// </summary>
     /// <param name="services">The IServiceCollection instance to which core infrastructure dependencies will be registered.</param>
     /// <returns>The modified IServiceCollection instance.</returns>
@@ -473,7 +474,6 @@ public static class ServiceCollectionExtensions
     {
         services.AddHttpContextAccessor();
         services.AddLogging();
-        services.AddScoped(typeof(LogContextHelper<>));
 
         return services;
     }
@@ -627,10 +627,26 @@ public static class ServiceCollectionExtensions
             .WithTracing(tracing =>
             {
                 tracing
-                    .AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation()
+                    .AddAspNetCoreInstrumentation(options =>
+                    {
+                        // Don't record request/response bodies - may contain sensitive data
+                        options.RecordException = true;
+                    })
+                    .AddHttpClientInstrumentation(options =>
+                    {
+                        // Filter sensitive headers from outbound requests
+                        options.FilterHttpRequestMessage = request =>
+                        {
+                            // Don't trace requests to sensitive endpoints
+                            var path = request.RequestUri?.AbsolutePath ?? "";
+                            return !path.Contains("token", StringComparison.OrdinalIgnoreCase) &&
+                                   !path.Contains("auth", StringComparison.OrdinalIgnoreCase);
+                        };
+                    })
                     .AddSqlClientInstrumentation()
                     .AddSource("StarbaseTemplateAPI")
+                    // Add sensitive data processor to sanitize span attributes
+                    .AddProcessor(new SensitiveDataActivityProcessor())
                     .AddOtlpExporter();
 
                 if (environment.IsDevelopment())

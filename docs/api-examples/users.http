@@ -1,0 +1,129 @@
+###############################################################################
+# Starbase API - User Management
+#
+# Admin endpoints for user CRUD operations.
+# Requires JWT authentication and specific privileges.
+###############################################################################
+
+@baseUrl = {{$dotenv baseUrl}}
+@token = YOUR_ACCESS_TOKEN_HERE
+@userId = YOUR_USER_ID_HERE
+@organizationId = YOUR_ORG_ID_HERE
+
+###############################################################################
+# User Queries
+###############################################################################
+
+### Get All Users (Full Details)
+# Requires: UserManagement.View privilege
+GET {{baseUrl}}/api/v1/admin/user/GetAllUsers
+Authorization: Bearer {{token}}
+
+### Get Basic Users (Limited Info)
+# Requires: UserManagement.ViewBasic privilege
+# Returns only ID and name - no sensitive data
+GET {{baseUrl}}/api/v1/basicuser/GetAllUsers
+Authorization: Bearer {{token}}
+
+###############################################################################
+# User CRUD
+###############################################################################
+
+### Create User
+# Requires: UserManagement.Create privilege
+POST {{baseUrl}}/api/v1/admin/user
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "username": "newuser@example.com",
+    "password": "SecurePassword123!",
+    "firstName": "John",
+    "lastName": "Doe",
+    "organizationId": "{{organizationId}}",
+    "roles": []
+}
+
+### Create User with Roles
+POST {{baseUrl}}/api/v1/admin/user
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "username": "manager@example.com",
+    "password": "SecurePassword123!",
+    "firstName": "Jane",
+    "lastName": "Manager",
+    "organizationId": "{{organizationId}}",
+    "roles": [
+        {
+            "id": "ROLE_ID_HERE",
+            "name": "Manager"
+        }
+    ]
+}
+
+### Update User
+# Requires: UserManagement.Update privilege
+PUT {{baseUrl}}/api/v1/admin/user
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "id": "{{userId}}",
+    "username": "user@example.com",
+    "firstName": "John",
+    "lastName": "Updated",
+    "active": true,
+    "forceResetPassword": false,
+    "organizationId": "{{organizationId}}",
+    "roles": []
+}
+
+### Force User Password Reset
+# Set forceResetPassword to true - user must reset on next login
+PUT {{baseUrl}}/api/v1/admin/user
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "id": "{{userId}}",
+    "username": "user@example.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "active": true,
+    "forceResetPassword": true,
+    "organizationId": "{{organizationId}}",
+    "roles": []
+}
+
+### Deactivate User
+# Requires: UserManagement.Deactivate privilege
+# Soft delete - user cannot login but data is preserved
+DELETE {{baseUrl}}/api/v1/admin/user/{{userId}}
+Authorization: Bearer {{token}}
+
+###############################################################################
+# MFA Administration
+###############################################################################
+
+### Get System MFA Statistics
+# Requires: SystemAdministration.Metrics privilege
+GET {{baseUrl}}/api/v1/admin/mfaadmin/statistics/system
+Authorization: Bearer {{token}}
+
+### Get Organization MFA Statistics
+# Requires: SystemAdministration.Metrics privilege
+GET {{baseUrl}}/api/v1/admin/mfaadmin/statistics/organization/{{organizationId}}
+Authorization: Bearer {{token}}
+
+### Get My Organization MFA Statistics
+# Requires: OrganizationManagement.MfaMetrics privilege
+GET {{baseUrl}}/api/v1/admin/mfaadmin/statistics/my-organization
+Authorization: Bearer {{token}}
+
+### Cleanup Unverified MFA Methods
+# Remove abandoned MFA setup attempts
+# olderThanHours: 1-8760 (default: 24)
+DELETE {{baseUrl}}/api/v1/admin/mfaadmin/cleanup/unverified?olderThanHours=24
+Authorization: Bearer {{token}}

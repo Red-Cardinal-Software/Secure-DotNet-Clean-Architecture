@@ -1,0 +1,117 @@
+###############################################################################
+# Starbase API - MFA Configuration
+#
+# Configure MFA methods for authenticated users.
+# All endpoints require JWT authentication.
+###############################################################################
+
+@baseUrl = {{$dotenv baseUrl}}
+@token = YOUR_ACCESS_TOKEN_HERE
+@mfaMethodId = YOUR_MFA_METHOD_ID_HERE
+
+###############################################################################
+# MFA Overview
+###############################################################################
+
+### Get MFA Overview
+# Get summary of user's configured MFA methods
+GET {{baseUrl}}/api/v1/auth/mfa/overview
+Authorization: Bearer {{token}}
+
+###############################################################################
+# TOTP (Authenticator App)
+###############################################################################
+
+### Start TOTP Setup
+# Returns secret and QR code for authenticator app
+POST {{baseUrl}}/api/v1/auth/mfa/setup/totp
+Authorization: Bearer {{token}}
+
+### Verify TOTP Setup
+# Verify with 6-digit code from authenticator app
+# Returns recovery codes - save them!
+POST {{baseUrl}}/api/v1/auth/mfa/verify/totp
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "code": "123456",
+    "name": "My Authenticator"
+}
+
+###############################################################################
+# Email MFA
+###############################################################################
+
+### Start Email MFA Setup
+# Sends verification code to email address
+POST {{baseUrl}}/api/v1/auth/mfa/setup/email
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "emailAddress": "user@example.com"
+}
+
+### Verify Email MFA Setup
+# Verify with code sent to email
+POST {{baseUrl}}/api/v1/auth/mfa/verify/email
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "code": "123456",
+    "name": "Work Email"
+}
+
+###############################################################################
+# Email Code Operations
+###############################################################################
+
+### Send Email Code
+# Send verification code to email
+POST {{baseUrl}}/api/v1/mfa/email/send
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "emailAddress": "user@example.com"
+}
+
+### Verify Email Code
+POST {{baseUrl}}/api/v1/mfa/email/verify
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "emailAddress": "user@example.com",
+    "code": "123456"
+}
+
+### Check Email Rate Limit
+GET {{baseUrl}}/api/v1/mfa/email/rate-limit
+Authorization: Bearer {{token}}
+
+###############################################################################
+# MFA Method Management
+###############################################################################
+
+### Update MFA Method
+# Update name or preferences
+PUT {{baseUrl}}/api/v1/auth/mfa/method/{{mfaMethodId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+    "name": "Updated Method Name",
+    "isPreferred": true
+}
+
+### Remove MFA Method
+DELETE {{baseUrl}}/api/v1/auth/mfa/method/{{mfaMethodId}}
+Authorization: Bearer {{token}}
+
+### Regenerate Recovery Codes
+# Generates new codes, invalidates old ones
+POST {{baseUrl}}/api/v1/auth/mfa/method/{{mfaMethodId}}/recovery-codes
+Authorization: Bearer {{token}}

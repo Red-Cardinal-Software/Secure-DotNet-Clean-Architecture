@@ -1,0 +1,1289 @@
+{
+	"info": {
+		"_postman_id": "starbase-api-collection",
+		"name": "Starbase API",
+		"description": "Complete API collection for Starbase - A Secure .NET Clean Architecture Template.\n\n## Getting Started\n\n1. Run the Initial Setup request first (only works once)\n2. Use the Login request to get JWT tokens\n3. The collection automatically stores tokens in variables\n\n## Variables\n\n- `baseUrl`: API base URL (default: http://localhost:5000)\n- `accessToken`: JWT access token (auto-populated after login)\n- `refreshToken`: Refresh token (auto-populated after login)\n- `username`: Test username\n- `password`: Test password",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5000",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "username",
+			"value": "admin@example.com",
+			"type": "string"
+		},
+		{
+			"key": "password",
+			"value": "YourSecurePassword123!",
+			"type": "string"
+		},
+		{
+			"key": "mfaChallengeId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "mfaMethodId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "organizationId",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Setup",
+			"description": "One-time initial system setup. Only works before any users exist.",
+			"item": [
+				{
+					"name": "Initial Setup",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', jsonData.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', jsonData.refreshToken);",
+									"    console.log('Setup complete! Tokens saved.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{username}}\",\n    \"password\": \"{{password}}\",\n    \"firstName\": \"Admin\",\n    \"lastName\": \"User\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/setup",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "setup"]
+						},
+						"description": "Creates the initial admin user. Only works once - returns 404 after setup is complete."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Authentication",
+			"description": "Login, logout, token refresh, and password reset endpoints.",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.accessToken) {",
+									"        pm.collectionVariables.set('accessToken', jsonData.accessToken);",
+									"        pm.collectionVariables.set('refreshToken', jsonData.refreshToken);",
+									"        console.log('Login successful! Tokens saved.');",
+									"    } else if (jsonData.mfaRequired) {",
+									"        pm.collectionVariables.set('mfaChallengeId', jsonData.challengeId);",
+									"        console.log('MFA required. Challenge ID saved.');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"{{username}}\",\n    \"password\": \"{{password}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Authenticate with username and password. Returns JWT tokens or MFA challenge."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"{{username}}\",\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "logout"]
+						},
+						"description": "Invalidates the refresh token."
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', jsonData.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', jsonData.refreshToken);",
+									"    console.log('Token refreshed! New tokens saved.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"{{username}}\",\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "refresh"]
+						},
+						"description": "Get new access token using refresh token. Implements token rotation."
+					},
+					"response": []
+				},
+				{
+					"name": "Request Password Reset",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/ResetPassword/user@example.com",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "ResetPassword", "user@example.com"]
+						},
+						"description": "Request password reset email. Replace email in URL."
+					},
+					"response": []
+				},
+				{
+					"name": "Apply Password Reset",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"reset-token-from-email\",\n    \"password\": \"NewSecurePassword123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/ResetUserPassword",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "ResetUserPassword"]
+						},
+						"description": "Apply new password using reset token from email."
+					},
+					"response": []
+				},
+				{
+					"name": "Force Password Reset (Authenticated)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "\"NewSecurePassword123!\""
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/ForcePasswordReset",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "ForcePasswordReset"]
+						},
+						"description": "Force password reset for authenticated user (when forceResetPassword flag is set)."
+					},
+					"response": []
+				},
+				{
+					"name": "Complete MFA",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', jsonData.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', jsonData.refreshToken);",
+									"    console.log('MFA complete! Tokens saved.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"challengeId\": \"{{mfaChallengeId}}\",\n    \"code\": \"123456\",\n    \"methodType\": \"totp\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/mfa/complete",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "mfa", "complete"]
+						},
+						"description": "Complete MFA challenge during login. methodType: totp, email, webauthn, push, recovery"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "MFA Configuration",
+			"description": "Configure MFA methods for the authenticated user.",
+			"item": [
+				{
+					"name": "Get MFA Overview",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/mfa/overview",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "mfa", "overview"]
+						},
+						"description": "Get summary of user's configured MFA methods."
+					},
+					"response": []
+				},
+				{
+					"name": "Start TOTP Setup",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    console.log('TOTP Secret:', jsonData.secret);",
+									"    console.log('QR Code URI:', jsonData.qrCodeUri);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/mfa/setup/totp",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "mfa", "setup", "totp"]
+						},
+						"description": "Start TOTP setup. Returns secret and QR code for authenticator app."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify TOTP Setup",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.methodId) {",
+									"        pm.collectionVariables.set('mfaMethodId', jsonData.methodId);",
+									"    }",
+									"    console.log('TOTP verified! Save recovery codes:', jsonData.recoveryCodes);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\",\n    \"name\": \"My Authenticator\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/mfa/verify/totp",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "mfa", "verify", "totp"]
+						},
+						"description": "Verify TOTP setup with 6-digit code from authenticator app."
+					},
+					"response": []
+				},
+				{
+					"name": "Start Email MFA Setup",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"emailAddress\": \"user@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/mfa/setup/email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "mfa", "setup", "email"]
+						},
+						"description": "Start email MFA setup. Sends verification code to email."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Email MFA Setup",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\",\n    \"name\": \"Work Email\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/mfa/verify/email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "mfa", "verify", "email"]
+						},
+						"description": "Verify email MFA with code sent to email."
+					},
+					"response": []
+				},
+				{
+					"name": "Update MFA Method",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Method Name\",\n    \"isPreferred\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/mfa/method/{{mfaMethodId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "mfa", "method", "{{mfaMethodId}}"]
+						},
+						"description": "Update MFA method name or preferences."
+					},
+					"response": []
+				},
+				{
+					"name": "Remove MFA Method",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/mfa/method/{{mfaMethodId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "mfa", "method", "{{mfaMethodId}}"]
+						},
+						"description": "Remove an MFA method."
+					},
+					"response": []
+				},
+				{
+					"name": "Regenerate Recovery Codes",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/mfa/method/{{mfaMethodId}}/recovery-codes",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "mfa", "method", "{{mfaMethodId}}", "recovery-codes"]
+						},
+						"description": "Generate new recovery codes (invalidates old ones)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "WebAuthn (FIDO2)",
+			"description": "WebAuthn/FIDO2 credential management for passwordless authentication.",
+			"item": [
+				{
+					"name": "Start Registration",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"authenticatorType\": \"platform\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfa/webauthn/register/start",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfa", "webauthn", "register", "start"]
+						},
+						"description": "Start WebAuthn credential registration. Returns challenge for authenticator."
+					},
+					"response": []
+				},
+				{
+					"name": "Complete Registration",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"credential-id\",\n    \"rawId\": \"base64-raw-id\",\n    \"type\": \"public-key\",\n    \"response\": {\n        \"attestationObject\": \"base64-attestation\",\n        \"clientDataJSON\": \"base64-client-data\"\n    },\n    \"name\": \"My Security Key\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfa/webauthn/register/complete",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfa", "webauthn", "register", "complete"]
+						},
+						"description": "Complete WebAuthn registration with attestation response from authenticator."
+					},
+					"response": []
+				},
+				{
+					"name": "Start Authentication",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfa/webauthn/authenticate/start",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfa", "webauthn", "authenticate", "start"]
+						},
+						"description": "Start WebAuthn authentication. Returns challenge for authenticator."
+					},
+					"response": []
+				},
+				{
+					"name": "Complete Authentication",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"credential-id\",\n    \"rawId\": \"base64-raw-id\",\n    \"type\": \"public-key\",\n    \"response\": {\n        \"authenticatorData\": \"base64-auth-data\",\n        \"clientDataJSON\": \"base64-client-data\",\n        \"signature\": \"base64-signature\"\n    }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfa/webauthn/authenticate/complete",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfa", "webauthn", "authenticate", "complete"]
+						},
+						"description": "Complete WebAuthn authentication with assertion response."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Credentials",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfa/webauthn/credentials",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfa", "webauthn", "credentials"]
+						},
+						"description": "List all WebAuthn credentials for current user."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Credential Name",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Office Security Key\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfa/webauthn/credentials/{{credentialId}}/name",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfa", "webauthn", "credentials", "{{credentialId}}", "name"]
+						},
+						"description": "Update friendly name of a WebAuthn credential."
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Credential",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfa/webauthn/credentials/{{credentialId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfa", "webauthn", "credentials", "{{credentialId}}"]
+						},
+						"description": "Remove a WebAuthn credential."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Email MFA",
+			"description": "Email-based MFA code operations.",
+			"item": [
+				{
+					"name": "Send Email Code",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"emailAddress\": \"user@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfa/email/send",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfa", "email", "send"]
+						},
+						"description": "Send verification code to email address."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Email Code",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"emailAddress\": \"user@example.com\",\n    \"code\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfa/email/verify",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfa", "email", "verify"]
+						},
+						"description": "Verify email code."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Rate Limit",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfa/email/rate-limit",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfa", "email", "rate-limit"]
+						},
+						"description": "Check email code rate limit status."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Push MFA",
+			"description": "Push notification MFA device management.",
+			"item": [
+				{
+					"name": "Register Device",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"deviceId\": \"unique-device-id\",\n    \"deviceName\": \"iPhone 15 Pro\",\n    \"platform\": \"iOS\",\n    \"pushToken\": \"apns-token-here\",\n    \"publicKey\": \"base64-public-key\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfapush/register-device",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfapush", "register-device"]
+						},
+						"description": "Register a device for push MFA notifications."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Devices",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfapush/devices",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfapush", "devices"]
+						},
+						"description": "List all registered push devices."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Device Token",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"newToken\": \"new-push-token\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfapush/devices/{{deviceId}}/token",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfapush", "devices", "{{deviceId}}", "token"]
+						},
+						"description": "Update push notification token for a device."
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Device",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfapush/devices/{{deviceId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfapush", "devices", "{{deviceId}}"]
+						},
+						"description": "Remove a push device."
+					},
+					"response": []
+				},
+				{
+					"name": "Send Challenge",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"sessionId\": \"login-session-id\",\n    \"deviceId\": \"{{deviceId}}\",\n    \"location\": \"New York, US\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfapush/challenge",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfapush", "challenge"]
+						},
+						"description": "Send push challenge to device."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Challenge Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfapush/challenge/{{challengeId}}/status?sessionId=login-session-id",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfapush", "challenge", "{{challengeId}}", "status"],
+							"query": [
+								{
+									"key": "sessionId",
+									"value": "login-session-id"
+								}
+							]
+						},
+						"description": "Poll challenge status (pending, approved, denied, expired)."
+					},
+					"response": []
+				},
+				{
+					"name": "Respond to Challenge",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"isApproved\": true,\n    \"signature\": \"cryptographic-signature\",\n    \"deviceId\": \"{{deviceId}}\",\n    \"context\": \"User approved from mobile app\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/mfapush/challenge/{{challengeId}}/respond",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "mfapush", "challenge", "{{challengeId}}", "respond"]
+						},
+						"description": "Respond to challenge from mobile app (no auth required - uses signature)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "User Management",
+			"description": "Admin endpoints for user management. Requires UserManagement privileges.",
+			"item": [
+				{
+					"name": "Get All Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/user/GetAllUsers",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "user", "GetAllUsers"]
+						},
+						"description": "Get all users. Requires UserManagement.View privilege."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Basic Users",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/basicuser/GetAllUsers",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "basicuser", "GetAllUsers"]
+						},
+						"description": "Get basic user info (ID, name only). Requires UserManagement.ViewBasic privilege."
+					},
+					"response": []
+				},
+				{
+					"name": "Create User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"newuser@example.com\",\n    \"password\": \"SecurePassword123!\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"organizationId\": \"{{organizationId}}\",\n    \"roles\": []\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/user",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "user"]
+						},
+						"description": "Create new user. Requires UserManagement.Create privilege."
+					},
+					"response": []
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"{{userId}}\",\n    \"username\": \"user@example.com\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"active\": true,\n    \"forceResetPassword\": false,\n    \"organizationId\": \"{{organizationId}}\",\n    \"roles\": []\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/user",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "user"]
+						},
+						"description": "Update user. Requires UserManagement.Update privilege."
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/user/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "user", "{{userId}}"]
+						},
+						"description": "Deactivate user. Requires UserManagement.Deactivate privilege."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "MFA Admin",
+			"description": "Admin endpoints for MFA statistics and management.",
+			"item": [
+				{
+					"name": "Get System MFA Statistics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/mfaadmin/statistics/system",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "mfaadmin", "statistics", "system"]
+						},
+						"description": "Get system-wide MFA statistics. Requires SystemAdministration.Metrics privilege."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Organization MFA Statistics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/mfaadmin/statistics/organization/{{organizationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "mfaadmin", "statistics", "organization", "{{organizationId}}"]
+						},
+						"description": "Get MFA statistics for specific organization."
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Organization MFA Statistics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/mfaadmin/statistics/my-organization",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "mfaadmin", "statistics", "my-organization"]
+						},
+						"description": "Get MFA statistics for current user's organization."
+					},
+					"response": []
+				},
+				{
+					"name": "Cleanup Unverified MFA Methods",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/admin/mfaadmin/cleanup/unverified?olderThanHours=24",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "admin", "mfaadmin", "cleanup", "unverified"],
+							"query": [
+								{
+									"key": "olderThanHours",
+									"value": "24"
+								}
+							]
+						},
+						"description": "Remove unverified MFA methods older than specified hours (1-8760)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Audit",
+			"description": "Audit log querying and verification. Requires Audit privileges.",
+			"item": [
+				{
+					"name": "Query Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit/logs?pageNumber=1&pageSize=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "audit", "logs"],
+							"query": [
+								{
+									"key": "pageNumber",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "20"
+								},
+								{
+									"key": "entityType",
+									"value": "AppUser",
+									"disabled": true
+								},
+								{
+									"key": "action",
+									"value": "Update",
+									"disabled": true
+								},
+								{
+									"key": "fromDate",
+									"value": "2024-01-01",
+									"disabled": true
+								},
+								{
+									"key": "toDate",
+									"value": "2024-12-31",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Query audit logs with filtering and pagination."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Entity History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit/entity/AppUser/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "audit", "entity", "AppUser", "{{userId}}"]
+						},
+						"description": "Get complete audit history for a specific entity."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Activity",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit/user/{{userId}}?fromDate=2024-01-01&toDate=2024-12-31",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "audit", "user", "{{userId}}"],
+							"query": [
+								{
+									"key": "fromDate",
+									"value": "2024-01-01"
+								},
+								{
+									"key": "toDate",
+									"value": "2024-12-31"
+								}
+							]
+						},
+						"description": "Get audit activity for a specific user."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Ledger Integrity",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit/verify",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "audit", "verify"],
+							"query": [
+								{
+									"key": "fromSequence",
+									"value": "1",
+									"disabled": true
+								},
+								{
+									"key": "toSequence",
+									"value": "1000",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Verify audit ledger integrity (hash chain, sequence gaps)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Archives",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit/archives",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "audit", "archives"],
+							"query": [
+								{
+									"key": "fromDate",
+									"value": "2024-01-01",
+									"disabled": true
+								},
+								{
+									"key": "toDate",
+									"value": "2024-12-31",
+									"disabled": true
+								}
+							]
+						},
+						"description": "List archive manifests."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Archive",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit/archives/{{archiveId}}/verify",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "audit", "archives", "{{archiveId}}", "verify"]
+						},
+						"description": "Verify integrity of archived partition."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Health",
+			"description": "Health check endpoints for monitoring and orchestration.",
+			"item": [
+				{
+					"name": "Basic Health",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "health"]
+						},
+						"description": "Basic health check for load balancers."
+					},
+					"response": []
+				},
+				{
+					"name": "Detailed Health",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/health/detailed",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "health", "detailed"]
+						},
+						"description": "Detailed health status (excludes privileged checks)."
+					},
+					"response": []
+				},
+				{
+					"name": "System Health (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/health/system",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "health", "system"]
+						},
+						"description": "Complete health report. Requires SystemAdministration.Metrics privilege."
+					},
+					"response": []
+				},
+				{
+					"name": "Liveness Probe",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/health/live",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "health", "live"]
+						},
+						"description": "Kubernetes liveness probe. Always returns 200."
+					},
+					"response": []
+				},
+				{
+					"name": "Readiness Probe",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/health/ready",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "health", "ready"]
+						},
+						"description": "Kubernetes readiness probe. Returns 503 if not ready."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
