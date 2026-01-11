@@ -144,7 +144,7 @@ var loggerConfig = new LoggerConfiguration()
     .Enrich.WithProcessName()
     .Enrich.WithEnvironmentName()
     .Destructure.With<SensitiveDataDestructuringPolicy>();
-    
+
 
 // Only write to console in development - production should use configured sinks
 // Use ECS (Elastic Common Schema) format for SIEM compatibility
