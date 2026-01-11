@@ -27,6 +27,7 @@ using Application.Validators;
 using AutoMapper;
 using FluentValidation;
 using Infrastructure.Emailing;
+using Infrastructure.Emailing.Senders;
 using Infrastructure.HealthChecks;
 using Infrastructure.Persistence;
 using Infrastructure.Persistence.Interceptors;
@@ -161,7 +162,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
         services.AddScoped<IEmailTemplateRepository, EmailTemplateRepository>();
-        services.AddScoped<IEmailTemplateRenderer, EmailTemplateRenderer>();
         services.AddScoped<IAccountLockoutRepository, AccountLockoutRepository>();
         services.AddScoped<ILoginAttemptRepository, LoginAttemptRepository>();
         services.AddScoped<IMfaMethodRepository, MfaMethodRepository>();
@@ -172,6 +172,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPushNotificationProvider, MockPushNotificationProvider>();
         services.AddScoped<IAuditLedgerRepository, AuditLedgerRepository>();
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
+        services.AddScoped<IOutboundEmailRepository, OutboundEmailRepository>();
 
         return services;
     }
@@ -191,8 +192,35 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IPasswordResetService, PasswordResetService>();
         services.AddScoped<IAppUserService, AppUserService>();
-        // Development: Logs emails to console. Replace with SendGrid/Postmark/SES for production.
+
+        // Email subsystem: Template engine, provider, and queue
+        services.AddScoped<IEmailTemplateProvider, HybridEmailTemplateProvider>();
+        services.AddScoped<IEmailQueue, EmailQueue>();
+        services.AddScoped<IEmailTemplateRenderer, FluidEmailTemplateRenderer>();
+
+        ////#if (UseSendGrid)
+        //services.AddScoped<IEmailSender, SendGridEmailSender>();
+        ////#elseif (UseAwsSes)
+        //services.AddScoped<IEmailSender, SesEmailSender>();
+        ////#elseif (UsePostmark)
+        //services.AddScoped<IEmailSender, PostmarkEmailSender>();
+        ////#elseif (UseMailgun)
+        //services.AddScoped<IEmailSender, MailgunEmailSender>();
+        ////#elseif (UseMailchimp)
+        //services.AddScoped<IEmailSender, MailchimpEmailSender>();
+        ////#elseif (UseSmtp)
+        //services.AddScoped<IEmailSender, SmtpEmailSender>();
+        ////#else
+        // Default: Console sender for development (logs emails to console)
+        services.AddScoped<IEmailSender, ConsoleEmailSender>();
+        ////#endif
+
+        // Email queue processor - background service that sends queued emails
+        services.AddHostedService<EmailQueueProcessor>();
+
+        // Legacy interface for backward compatibility with existing code
         services.AddScoped<IEmailService, ConsoleEmailService>();
+
         services.AddScoped<IAccountLockoutService, AccountLockoutService>();
         services.AddScoped<IMfaConfigurationService, MfaConfigurationService>();
         services.AddScoped<IMfaAuthenticationService, MfaAuthenticationService>();
@@ -317,6 +345,18 @@ public static class ServiceCollectionExtensions
         // Signing key rotation options (for JWT key rotation)
         services.AddOptions<SigningKeyRotationOptions>()
             .BindConfiguration(SigningKeyRotationOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // Email provider and template options
+        services.AddOptions<EmailOptions>()
+            .BindConfiguration(EmailOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // Email queue processor options
+        services.AddOptions<EmailQueueOptions>()
+            .BindConfiguration(EmailQueueOptions.SectionName)
             .ValidateDataAnnotations()
             .ValidateOnStart();
 

@@ -320,6 +320,66 @@
     "UseOracle": {
       "type": "computed",
       "value": "(DatabaseProvider == \"Oracle\")"
+    },
+    "EmailProvider": {
+      "type": "parameter",
+      "datatype": "choice",
+      "description": "Email provider for transactional emails",
+      "defaultValue": "None",
+      "choices": [
+        {
+          "choice": "None",
+          "description": "Console logger only (development)"
+        },
+        {
+          "choice": "Smtp",
+          "description": "SMTP server"
+        },
+        {
+          "choice": "SendGrid",
+          "description": "SendGrid"
+        },
+        {
+          "choice": "AwsSes",
+          "description": "AWS Simple Email Service"
+        },
+        {
+          "choice": "Postmark",
+          "description": "Postmark"
+        },
+        {
+          "choice": "Mailgun",
+          "description": "Mailgun"
+        },
+        {
+          "choice": "Mailchimp",
+          "description": "Mailchimp Transactional (Mandrill)"
+        }
+      ]
+    },
+    "UseSmtp": {
+      "type": "computed",
+      "value": "(EmailProvider == \"Smtp\")"
+    },
+    "UseSendGrid": {
+      "type": "computed",
+      "value": "(EmailProvider == \"SendGrid\")"
+    },
+    "UseAwsSes": {
+      "type": "computed",
+      "value": "(EmailProvider == \"AwsSes\")"
+    },
+    "UsePostmark": {
+      "type": "computed",
+      "value": "(EmailProvider == \"Postmark\")"
+    },
+    "UseMailgun": {
+      "type": "computed",
+      "value": "(EmailProvider == \"Mailgun\")"
+    },
+    "UseMailchimp": {
+      "type": "computed",
+      "value": "(EmailProvider == \"Mailchimp\")"
     }
   },
   "sources": [
@@ -355,6 +415,42 @@
           "condition": "(UsePostgreSql || UseOracle)",
           "exclude": [
             "**/Infrastructure/Migrations/**"
+          ]
+        },
+        {
+          "condition": "(!UseSendGrid)",
+          "exclude": [
+            "**/Infrastructure/Emailing/Senders/SendGridEmailSender.cs"
+          ]
+        },
+        {
+          "condition": "(!UseAwsSes)",
+          "exclude": [
+            "**/Infrastructure/Emailing/Senders/SesEmailSender.cs"
+          ]
+        },
+        {
+          "condition": "(!UsePostmark)",
+          "exclude": [
+            "**/Infrastructure/Emailing/Senders/PostmarkEmailSender.cs"
+          ]
+        },
+        {
+          "condition": "(!UseMailgun)",
+          "exclude": [
+            "**/Infrastructure/Emailing/Senders/MailgunEmailSender.cs"
+          ]
+        },
+        {
+          "condition": "(!UseMailchimp)",
+          "exclude": [
+            "**/Infrastructure/Emailing/Senders/MailchimpEmailSender.cs"
+          ]
+        },
+        {
+          "condition": "(!UseSmtp)",
+          "exclude": [
+            "**/Infrastructure/Emailing/Senders/SmtpEmailSender.cs"
           ]
         },
         {

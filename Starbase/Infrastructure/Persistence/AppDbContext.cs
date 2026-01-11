@@ -1,5 +1,6 @@
 using Domain.Entities.Audit;
 using Domain.Entities.Configuration;
+using Domain.Entities.Email;
 using Domain.Entities.Identity;
 using Domain.Entities.Security;
 using Infrastructure.Persistence.Extensions;
@@ -21,6 +22,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IConfiguration
 
     // Configuration Tables
     public DbSet<EmailTemplate> EmailTemplates { get; set; }
+
+    // Email Tables
+    public DbSet<OutboundEmail> OutboundEmails { get; set; }
 
     // Security Tables
     public DbSet<LoginAttempt> LoginAttempts { get; set; }

@@ -138,11 +138,13 @@ if (builder.Environment.IsDevelopment())
 var loggerConfig = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
+    .Enrich.With<EmailMaskingEnricher>()
     .Enrich.WithMachineName()
     .Enrich.WithProcessId()
     .Enrich.WithProcessName()
     .Enrich.WithEnvironmentName()
     .Destructure.With<SensitiveDataDestructuringPolicy>();
+
 
 // Only write to console in development - production should use configured sinks
 // Use ECS (Elastic Common Schema) format for SIEM compatibility

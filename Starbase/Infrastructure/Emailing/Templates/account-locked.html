@@ -1,0 +1,25 @@
+<p>Hi {{ model.first_name }},</p>
+
+<p>Your account has been temporarily locked due to multiple failed sign-in attempts.</p>
+
+<div class="warning-box">
+    <strong>Reason:</strong> {{ model.reason }}<br>
+    <strong>Failed Attempts:</strong> {{ model.failed_attempts }}
+    {% if model.ip_address %}<br><strong>From IP:</strong> {{ model.ip_address }}{% endif %}
+</div>
+
+<p><strong>Your account will be automatically unlocked at:</strong></p>
+<p style="font-size: 18px; font-weight: bold; text-align: center;">
+    {{ model.unlock_time | format_date: "MMMM dd, yyyy 'at' HH:mm:ss 'UTC'" }}
+</p>
+
+<div class="info-box">
+    <strong>What should you do?</strong>
+    <ul style="margin: 8px 0 0 0; padding-left: 20px;">
+        <li>Wait for the lockout period to end</li>
+        <li>If you forgot your password, use the "Forgot Password" link</li>
+        <li>If you didn't attempt to sign in, contact support immediately</li>
+    </ul>
+</div>
+
+<p class="text-muted">This security measure helps protect your account from unauthorized access.</p>
