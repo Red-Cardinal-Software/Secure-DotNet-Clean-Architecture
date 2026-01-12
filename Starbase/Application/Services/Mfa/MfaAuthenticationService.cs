@@ -6,6 +6,7 @@ using Application.DTOs.Mfa;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Repositories;
 using Application.Interfaces.Services;
+using Application.Logging;
 using Application.Models;
 using Domain.Entities.Security;
 using Microsoft.Extensions.Logging;
@@ -74,8 +75,12 @@ public class MfaAuthenticationService(
             // Map available methods to DTOs
             var availableMethods = enabledMethods.Select(MapToAvailableMethodDto).ToArray();
 
-            logger.LogInformation("MFA challenge created for user {UserId}, challenge {ChallengeId}",
-                userId, challenge.Id);
+            SecurityEvent.Log(logger,
+                SecurityEvent.Category.Authentication,
+                SecurityEvent.Type.Start,
+                "mfa-challenge-create",
+                SecurityEvent.Outcome.Success,
+                $"MFA challenge created for user: {userId}");
 
             return ServiceResponseFactory.Success(new MfaChallengeDto
             {
@@ -112,8 +117,9 @@ public class MfaAuthenticationService(
 
         if (!canContinue)
         {
-            logger.LogWarning("MFA challenge {ChallengeId} exhausted for user {UserId}",
-                challenge.Id, challenge.UserId);
+            SecurityEvent.Threat(logger, "mfa-verify",
+                "MFA challenge exhausted - potential brute force",
+                reason: "Maximum verification attempts exceeded");
 
             return ServiceResponseFactory.Error(
                 "Maximum verification attempts exceeded",
@@ -148,8 +154,12 @@ public class MfaAuthenticationService(
             // Invalidate other challenges for this user
             await InvalidateUserChallengesAsync(challenge.UserId, cancellationToken);
 
-            logger.LogInformation("MFA verification successful for user {UserId}, method {MethodId}",
-                challenge.UserId, methodToUse.Id);
+            SecurityEvent.Log(logger,
+                SecurityEvent.Category.Authentication,
+                SecurityEvent.Type.End,
+                "mfa-verify",
+                SecurityEvent.Outcome.Success,
+                $"MFA verification successful for user: {challenge.UserId}");
 
             return ServiceResponseFactory.Success(new MfaVerificationResultDto
             {
@@ -159,13 +169,26 @@ public class MfaAuthenticationService(
             });
         }
 
-        logger.LogWarning("MFA verification failed for user {UserId}, method {MethodId}",
-            challenge.UserId, methodToUse.Id);
+        SecurityEvent.AuthFailure(logger, "mfa-verify",
+            "MFA verification failed - invalid code",
+            reason: verificationResult.ErrorMessage ?? "Invalid verification code");
 
         return ServiceResponseFactory.Error(
             verificationResult.ErrorMessage ?? "Invalid verification code",
             new MfaVerificationResultDto { AttemptsRemaining = challenge.GetRemainingAttempts() },
             401);
+    }, () =>
+    {
+        // Concurrency conflict - another request modified the challenge simultaneously.
+        // Return error to prevent potential bypass of attempt limits.
+        SecurityEvent.Session(logger,
+            SecurityEvent.Type.Access,
+            "mfa-verify",
+            SecurityEvent.Outcome.Failure,
+            "MFA verification concurrency conflict detected",
+            reason: "Concurrent request");
+        return ServiceResponseFactory.Error<MfaVerificationResultDto>(
+            "Verification failed due to concurrent request. Please try again.");
     });
 
     /// <summary>

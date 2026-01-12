@@ -1,4 +1,6 @@
+using Application.Common.Exceptions;
 using Application.Interfaces.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
 
@@ -14,5 +16,15 @@ namespace Infrastructure.Persistence;
 /// </remarks>
 public class UnitOfWork(AppDbContext context) : IUnitOfWork
 {
-    public Task<int> CommitAsync(CancellationToken cancellationToken = default) => context.SaveChangesAsync(cancellationToken);
+    public async Task<int> CommitAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ConcurrencyException("A concurrency conflict occurred during save.", ex);
+        }
+    }
 }
