@@ -68,12 +68,7 @@ public class WebAuthnServiceTests
         _credentialRepository.Setup(x => x.GetActiveByUserIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WebAuthnCredential>());
 
-        _fido2.Setup(x => x.RequestNewCredential(
-                It.IsAny<Fido2User>(),
-                It.IsAny<List<PublicKeyCredentialDescriptor>>(),
-                It.IsAny<AuthenticatorSelection>(),
-                It.IsAny<AttestationConveyancePreference>(),
-                It.IsAny<AuthenticationExtensionsClientInputs>()))
+        _fido2.Setup(x => x.RequestNewCredential(It.IsAny<RequestNewCredentialParams>()))
             .Returns(credentialCreateOptions);
 
         // Make cache throw exception
@@ -119,12 +114,7 @@ public class WebAuthnServiceTests
         _credentialRepository.Setup(x => x.GetActiveByUserIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WebAuthnCredential>());
 
-        _fido2.Setup(x => x.RequestNewCredential(
-                It.IsAny<Fido2User>(),
-                It.IsAny<List<PublicKeyCredentialDescriptor>>(),
-                It.IsAny<AuthenticatorSelection>(),
-                It.IsAny<AttestationConveyancePreference>(),
-                It.IsAny<AuthenticationExtensionsClientInputs>()))
+        _fido2.Setup(x => x.RequestNewCredential(It.IsAny<RequestNewCredentialParams>()))
             .Returns(credentialCreateOptions);
 
         // Mock cache operations to succeed
@@ -178,18 +168,14 @@ public class WebAuthnServiceTests
             Challenge = [1, 2, 3, 4],
             Rp = new PublicKeyCredentialRpEntity("Test App", "localhost"),
             User = new Fido2User { Name = "test", Id = [1], DisplayName = "Test" },
+            PubKeyCredParams = [new PubKeyCredParam(COSE.Algorithm.ES256)],
             ExcludeCredentials = []
         };
 
         _credentialRepository.Setup(x => x.GetActiveByUserIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WebAuthnCredential> { existingCredential });
 
-        _fido2.Setup(x => x.RequestNewCredential(
-                It.IsAny<Fido2User>(),
-                It.Is<List<PublicKeyCredentialDescriptor>>(list => list.Count == 1),
-                It.IsAny<AuthenticatorSelection>(),
-                It.IsAny<AttestationConveyancePreference>(),
-                It.IsAny<AuthenticationExtensionsClientInputs>()))
+        _fido2.Setup(x => x.RequestNewCredential(It.IsAny<RequestNewCredentialParams>()))
             .Returns(credentialCreateOptions);
 
         // Mock cache operations to succeed
@@ -206,12 +192,7 @@ public class WebAuthnServiceTests
         // Assert
         result.Success.Should().BeTrue();
 
-        _fido2.Verify(x => x.RequestNewCredential(
-            It.IsAny<Fido2User>(),
-            It.Is<List<PublicKeyCredentialDescriptor>>(list => list.Count == 1),
-            It.IsAny<AuthenticatorSelection>(),
-            It.IsAny<AttestationConveyancePreference>(),
-            It.IsAny<AuthenticationExtensionsClientInputs>()), Times.Once);
+        _fido2.Verify(x => x.RequestNewCredential(It.IsAny<RequestNewCredentialParams>()), Times.Once);
     }
 
     [Fact]
@@ -314,10 +295,7 @@ public class WebAuthnServiceTests
         _credentialRepository.Setup(x => x.GetActiveByUserIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WebAuthnCredential> { credential });
 
-        _fido2.Setup(x => x.GetAssertionOptions(
-                It.IsAny<List<PublicKeyCredentialDescriptor>>(),
-                UserVerificationRequirement.Preferred,
-                null))
+        _fido2.Setup(x => x.GetAssertionOptions(It.IsAny<GetAssertionOptionsParams>()))
             .Returns(assertionOptions);
 
         _distributedCache.Setup(x => x.SetAsync(
@@ -717,18 +695,16 @@ public class WebAuthnServiceTests
 
         var credentialCreateOptions = new CredentialCreateOptions
         {
-            Challenge = [1, 2, 3, 4]
+            Challenge = [1, 2, 3, 4],
+            Rp = new PublicKeyCredentialRpEntity("Test App", "localhost"),
+            User = new Fido2User { Name = "test", Id = [1], DisplayName = "Test" },
+            PubKeyCredParams = [new PubKeyCredParam(COSE.Algorithm.ES256)]
         };
 
         _credentialRepository.Setup(x => x.GetActiveByUserIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WebAuthnCredential>());
 
-        _fido2.Setup(x => x.RequestNewCredential(
-                It.IsAny<Fido2User>(),
-                It.IsAny<List<PublicKeyCredentialDescriptor>>(),
-                It.IsAny<AuthenticatorSelection>(),
-                It.IsAny<AttestationConveyancePreference>(),
-                It.IsAny<AuthenticationExtensionsClientInputs>()))
+        _fido2.Setup(x => x.RequestNewCredential(It.IsAny<RequestNewCredentialParams>()))
             .Returns(credentialCreateOptions);
 
         _distributedCache.Setup(x => x.SetAsync(
@@ -778,10 +754,7 @@ public class WebAuthnServiceTests
         _credentialRepository.Setup(x => x.GetActiveByUserIdAsync(_userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<WebAuthnCredential> { credential });
 
-        _fido2.Setup(x => x.GetAssertionOptions(
-                It.IsAny<List<PublicKeyCredentialDescriptor>>(),
-                UserVerificationRequirement.Preferred,
-                null))
+        _fido2.Setup(x => x.GetAssertionOptions(It.IsAny<GetAssertionOptionsParams>()))
             .Returns(assertionOptions);
 
         _distributedCache.Setup(x => x.SetAsync(
