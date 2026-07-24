@@ -1,7 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
@@ -10,22 +10,21 @@
       <ProjectReference Include="..\Domain\Domain.csproj" />
     </ItemGroup>
 
+    <!-- Authorization and MVC abstractions come from the shared framework rather than
+         the legacy Microsoft.AspNetCore.Mvc.Core 2.x compatibility package. -->
     <ItemGroup>
-      <PackageReference Include="AutoMapper" Version="15.0.1" />
-      <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
-      <PackageReference Include="Fido2" Version="4.0.0" />
-      <PackageReference Include="FluentValidation" Version="12.0.0" />
-      <PackageReference Include="MediatR" Version="14.0.0" />
-      <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="8.0.19" />
-      <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.3.0" />
-      <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="9.0.11" />
-      <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.8" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.11" />
-      <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.8" />
-      <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
-      <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-      <PackageReference Include="StackExchange.Redis" Version="2.10.1" />
-      <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.13.0" />
+      <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="AutoMapper" />
+      <PackageReference Include="BouncyCastle.Cryptography" />
+      <PackageReference Include="Fido2" />
+      <PackageReference Include="FluentValidation" />
+      <PackageReference Include="MediatR" />
+      <PackageReference Include="Microsoft.IdentityModel.Tokens" />
+      <PackageReference Include="RedCardinal.Compliance.Abstractions" />
+      <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     </ItemGroup>
 
 </Project>
