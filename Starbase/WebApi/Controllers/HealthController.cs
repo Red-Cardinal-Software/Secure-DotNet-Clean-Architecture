@@ -9,12 +9,15 @@ namespace Starbase.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [AllowAnonymous]
     [EnableRateLimiting("health")]
+    // NOTE: [AllowAnonymous] is applied per-action, not on the controller. A
+    // controller-level [AllowAnonymous] overrides any action-level [Authorize]
+    // (including [RequirePrivilege]) and would expose the privileged endpoints below.
     public class HealthController(HealthCheckService healthCheckService) : ControllerBase
     {
         [HttpGet]
         [Route("")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetHealth()
         {
             var report = await healthCheckService.CheckHealthAsync();
@@ -26,6 +29,7 @@ namespace Starbase.Controllers
 
         [HttpGet]
         [Route("detailed")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetDetailedHealth()
         {
             var report = await healthCheckService.CheckHealthAsync(
@@ -79,6 +83,7 @@ namespace Starbase.Controllers
 
         [HttpGet]
         [Route("live")]
+        [AllowAnonymous]
         public IActionResult GetLiveness()
         {
             return Ok(new { status = "Alive", timestamp = DateTime.UtcNow });
@@ -86,6 +91,7 @@ namespace Starbase.Controllers
 
         [HttpGet]
         [Route("ready")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetReadiness()
         {
             var report = await healthCheckService.CheckHealthAsync(

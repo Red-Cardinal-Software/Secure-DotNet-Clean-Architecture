@@ -15,16 +15,13 @@ namespace WebApi.Integration.Tests.Fixtures;
 public class SqlServerContainerFixture : IAsyncLifetime
 {
 //#if (UsePostgreSql)
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine")
         .Build();
 //#elseif (UseOracle)
-    private readonly OracleContainer _container = new OracleBuilder()
-        .WithImage("gvenzl/oracle-free:23-slim-faststart")
+    private readonly OracleContainer _container = new OracleBuilder("gvenzl/oracle-free:23-slim-faststart")
         .Build();
 //#else
-    private readonly MsSqlContainer _container = new MsSqlBuilder()
-        .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+    private readonly MsSqlContainer _container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest")
         .Build();
 //#endif
 
