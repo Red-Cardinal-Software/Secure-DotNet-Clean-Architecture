@@ -29,8 +29,6 @@ public class AuditLedgerService(
     /// </summary>
     private const string GenesisHash = "0000000000000000000000000000000000000000000000000000000000000000";
 
-    private static readonly SemaphoreSlim AppendLock = new(1, 1);
-
     /// <inheritdoc />
     public async Task<ServiceResponse<AuditEntryDto>> RecordAsync(CreateAuditEntryDto entry)
     {
@@ -44,53 +42,54 @@ public class AuditLedgerService(
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// The append runs in its own serializable transaction on a dedicated connection (see
+    /// <see cref="IAuditLedgerRepository.AppendChainedAsync"/>), NOT through the caller's unit of
+    /// work. Two consequences worth preserving:
+    /// <list type="bullet">
+    /// <item>Recording an audit entry no longer commits whatever else the caller had pending.</item>
+    /// <item>The ledger's own SaveChanges cannot trigger the audit interceptor, so this cannot
+    /// re-enter itself. The static append lock that used to guard this method was non-reentrant
+    /// and self-deadlocked when the interceptor called back in; sequencing is now the database's
+    /// job, which also makes it correct across multiple instances.</item>
+    /// </list>
+    /// </remarks>
     public async Task<ServiceResponse<List<AuditEntryDto>>> RecordBatchAsync(IEnumerable<CreateAuditEntryDto> entries)
     {
-        await AppendLock.WaitAsync();
-        try
+        var entryList = entries.ToList();
+        if (entryList.Count == 0)
         {
-            return await RunWithCommitAsync(async () =>
+            return ServiceResponseFactory.Success(new List<AuditEntryDto>());
+        }
+
+        var occurredAt = DateTime.UtcNow;
+
+        // Runs inside the append transaction, and again on each retry, so it must stay pure.
+        var ledgerEntries = await repository.AppendChainedAsync((startSequence, tailHash) =>
+        {
+            var built = new List<AuditLedgerEntry>(entryList.Count);
+            var sequence = startSequence;
+            var previousHash = string.IsNullOrEmpty(tailHash) ? GenesisHash : tailHash;
+
+            foreach (var entry in entryList)
             {
-                var entryList = entries.ToList();
-                if (entryList.Count == 0)
-                {
-                    return ServiceResponseFactory.Success(new List<AuditEntryDto>());
-                }
+                var ledgerEntry = CreateLedgerEntry(entry, sequence, previousHash, occurredAt);
+                built.Add(ledgerEntry);
 
-                var nextSequence = await repository.GetNextSequenceNumberAsync();
-                var previousHash = await repository.GetLastHashAsync();
-                if (string.IsNullOrEmpty(previousHash))
-                {
-                    previousHash = GenesisHash;
-                }
+                previousHash = ledgerEntry.Hash;
+                sequence++;
+            }
 
-                var ledgerEntries = new List<AuditLedgerEntry>();
-                var now = DateTime.UtcNow;
+            return built;
+        });
 
-                foreach (var entry in entryList)
-                {
-                    var ledgerEntry = CreateLedgerEntry(entry, nextSequence, previousHash, now);
-                    ledgerEntries.Add(ledgerEntry);
+        logger.LogInformation(
+            "Recorded {Count} audit entries, sequences {First}-{Last}",
+            ledgerEntries.Count,
+            ledgerEntries.First().SequenceNumber,
+            ledgerEntries.Last().SequenceNumber);
 
-                    previousHash = ledgerEntry.Hash;
-                    nextSequence++;
-                }
-
-                await repository.AppendAsync(ledgerEntries);
-
-                logger.LogInformation(
-                    "Recorded {Count} audit entries, sequences {First}-{Last}",
-                    ledgerEntries.Count,
-                    ledgerEntries.First().SequenceNumber,
-                    ledgerEntries.Last().SequenceNumber);
-
-                return ServiceResponseFactory.Success(mapper.Map<List<AuditEntryDto>>(ledgerEntries));
-            });
-        }
-        finally
-        {
-            AppendLock.Release();
-        }
+        return ServiceResponseFactory.Success(mapper.Map<List<AuditEntryDto>>(ledgerEntries));
     }
 
     /// <inheritdoc />
