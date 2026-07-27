@@ -51,6 +51,14 @@ Update the connection string in `appsettings.json`:
 dotnet ef database update --project Infrastructure --startup-project WebApi
 ```
 
+The generated project ships with a migration set for the database provider you selected
+(`--DatabaseProvider`), including the append-only enforcement on the audit ledger (a SQL Server
+ledger table, or a `BEFORE UPDATE/DELETE` trigger on PostgreSQL/Oracle).
+
+> **Oracle note:** Oracle schemas are database users, so all tables are created in the single schema
+> of the connecting user. Connect as a user that has `CREATE TABLE`, `CREATE SEQUENCE`, and
+> `CREATE TRIGGER` privileges; every table lands in that user's schema.
+
 ## Run the Application
 
 ### Using .NET CLI

@@ -198,22 +198,25 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IEmailQueue, EmailQueue>();
         services.AddScoped<IEmailTemplateRenderer, FluidEmailTemplateRenderer>();
 
-        ////#if (UseSendGrid)
-        //services.AddScoped<IEmailSender, SendGridEmailSender>();
-        ////#elseif (UseAwsSes)
-        //services.AddScoped<IEmailSender, SesEmailSender>();
-        ////#elseif (UsePostmark)
-        //services.AddScoped<IEmailSender, PostmarkEmailSender>();
-        ////#elseif (UseMailgun)
-        //services.AddScoped<IEmailSender, MailgunEmailSender>();
-        ////#elseif (UseMailchimp)
-        //services.AddScoped<IEmailSender, MailchimpEmailSender>();
-        ////#elseif (UseSmtp)
-        //services.AddScoped<IEmailSender, SmtpEmailSender>();
-        ////#else
+        // Provider selected by the EmailProvider template switch. Delete-style conditional: in the
+        // template source all branches are live, so IEmailSender resolves to the //#else (Console)
+        // default; the template keeps only the chosen branch in generated output.
+        //#if (UseSendGrid)
+        services.AddScoped<IEmailSender, SendGridEmailSender>();
+        //#elseif (UseAwsSes)
+        services.AddScoped<IEmailSender, SesEmailSender>();
+        //#elseif (UsePostmark)
+        services.AddScoped<IEmailSender, PostmarkEmailSender>();
+        //#elseif (UseMailgun)
+        services.AddScoped<IEmailSender, MailgunEmailSender>();
+        //#elseif (UseMailchimp)
+        services.AddScoped<IEmailSender, MailchimpEmailSender>();
+        //#elseif (UseSmtp)
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
+        //#else
         // Default: Console sender for development (logs emails to console)
         services.AddScoped<IEmailSender, ConsoleEmailSender>();
-        ////#endif
+        //#endif
 
         // Email queue processor - background service that sends queued emails
         services.AddHostedService<EmailQueueProcessor>();
@@ -262,15 +265,15 @@ public static class ServiceCollectionExtensions
 
         // Signing key provider for JWT key rotation
         // Cloud providers support automatic rotation; local provider is for development only
-        ////#if (UseAzure)
-        //services.AddSingleton<ISigningKeyProvider, AzureKeyVaultSigningKeyProvider>();
-        ////#elseif (UseAWS)
-        //services.AddSingleton<ISigningKeyProvider, AwsSecretsManagerSigningKeyProvider>();
-        ////#elseif (UseGCP)
-        //services.AddSingleton<ISigningKeyProvider, GcpSecretManagerSigningKeyProvider>();
-        ////#else
+        //#if (UseAzure)
+        services.AddSingleton<ISigningKeyProvider, AzureKeyVaultSigningKeyProvider>();
+        //#elseif (UseAWS)
+        services.AddSingleton<ISigningKeyProvider, AwsSecretsManagerSigningKeyProvider>();
+        //#elseif (UseGCP)
+        services.AddSingleton<ISigningKeyProvider, GcpSecretManagerSigningKeyProvider>();
+        //#else
         services.AddSingleton<ISigningKeyProvider, LocalSigningKeyProvider>();
-        ////#endif
+        //#endif
 
         // Background service for automatic key rotation (only active when enabled in config)
         services.AddHostedService<SigningKeyRotationBackgroundService>();
@@ -360,26 +363,26 @@ public static class ServiceCollectionExtensions
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        ////#if (UseAzure)
-        //services.AddOptions<AzureKeyVaultOptions>()
-        //    .BindConfiguration(AzureKeyVaultOptions.SectionName)
-        //    .ValidateDataAnnotations()
-        //    .ValidateOnStart();
-        ////#endif
+        //#if (UseAzure)
+        services.AddOptions<AzureKeyVaultOptions>()
+            .BindConfiguration(AzureKeyVaultOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        //#endif
 
-        ////#if (UseAWS)
-        //services.AddOptions<AwsSecretsManagerOptions>()
-        //    .BindConfiguration(AwsSecretsManagerOptions.SectionName)
-        //    .ValidateDataAnnotations()
-        //    .ValidateOnStart();
-        ////#endif
+        //#if (UseAWS)
+        services.AddOptions<AwsSecretsManagerOptions>()
+            .BindConfiguration(AwsSecretsManagerOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        //#endif
 
-        ////#if (UseGCP)
-        //services.AddOptions<GcpSecretManagerOptions>()
-        //    .BindConfiguration(GcpSecretManagerOptions.SectionName)
-        //    .ValidateDataAnnotations()
-        //    .ValidateOnStart();
-        ////#endif
+        //#if (UseGCP)
+        services.AddOptions<GcpSecretManagerOptions>()
+            .BindConfiguration(GcpSecretManagerOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        //#endif
 
         return services;
     }
@@ -420,13 +423,7 @@ public static class ServiceCollectionExtensions
             var configuration = sp.GetRequiredService<IConfiguration>();
             var connectionString = configuration.GetConnectionString("SqlConnection");
 
-            ////#if (UsePostgreSql)
-            //options.UseNpgsql(connectionString);
-            ////#elseif (UseOracle)
-            //options.UseOracle(connectionString);
-            ////#else
-            options.UseSqlServer(connectionString);
-            ////#endif
+            DatabaseProviderSetup.Configure(options, connectionString);
 
             // Add audit interceptor for automatic entity change tracking
             var auditInterceptor = sp.GetRequiredService<AuditInterceptor>();

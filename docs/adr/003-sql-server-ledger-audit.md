@@ -20,42 +20,55 @@ Common approaches:
 - **Database-native immutability** - SQL Server Ledger, Oracle Blockchain Tables, PostgreSQL append-only
 - **Write-once storage** - Blob storage with immutability policies
 
-**Supported databases were chosen specifically because they provide native immutability features:**
+**Each supported database enforces append-only at the database layer; the mechanism differs per provider:**
 
 | Database | Immutability Feature | Version Required |
 |----------|---------------------|------------------|
-| SQL Server | Ledger Tables | 2022+ |
-| Oracle | Blockchain Tables | 21c+ |
-| PostgreSQL | Append-only with row-level security | 14+ |
+| SQL Server | Ledger table (`LEDGER = ON (APPEND_ONLY = ON)`) | 2022+ |
+| PostgreSQL | `BEFORE UPDATE/DELETE` trigger + `REVOKE` | 14+ |
+| Oracle | `BEFORE UPDATE/DELETE` trigger | 19c+ |
+
+> **Why triggers on PostgreSQL/Oracle rather than their "native" features.** PostgreSQL has no ledger
+> table, and RLS (an earlier idea) is the wrong tool — a `FOR ALL USING(false)` policy also blocks
+> `SELECT`, so the audit log becomes unreadable. Oracle *does* have Blockchain Tables, but their
+> retention (`NO DELETE`/`NO DROP UNTIL ...`) makes rows and the table itself un-removable for the
+> retention window, which conflicts with the partition archive/purge workflow (SQL Server's ledger has
+> the same limitation — it cannot be partition-switched). A `BEFORE UPDATE/DELETE` trigger blocks row
+> modification on both while leaving `INSERT` and `DROP PARTITION` (archival) intact, and it is applied
+> by the shipped migration so it needs no manual setup.
 
 ## Decision
 
-We will use **database-native immutability features** for audit logs, with provider-specific implementations:
+We will enforce append-only at the database layer with a provider-specific mechanism, and layer the
+application hash chain on top for cross-provider tamper *detection*.
 
-### SQL Server (Ledger Tables)
+### SQL Server (Ledger table)
 ```sql
-CREATE TABLE [dbo].[AuditLedgerEntries] (
-    ...
-) WITH (LEDGER = ON (APPEND_ONLY = ON));
+CREATE TABLE [Audit].[AuditLedger] (...)
+  WITH (LEDGER = ON (APPEND_ONLY = ON));
 ```
 
-### Oracle (Blockchain Tables)
+### PostgreSQL / Oracle (append-only trigger)
 ```sql
-CREATE BLOCKCHAIN TABLE audit_ledger_entries (
-    ...
-) NO DROP UNTIL 1 DAYS IDLE
-  NO DELETE LOCKED
-  HASHING USING "SHA2_512" VERSION "v1";
+-- PostgreSQL
+CREATE OR REPLACE FUNCTION "Audit".audit_ledger_append_only()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN RAISE EXCEPTION 'AuditLedger is append-only; % is not permitted', TG_OP; END; $$;
+CREATE TRIGGER audit_ledger_no_modify
+  BEFORE UPDATE OR DELETE ON "Audit"."AuditLedger"
+  FOR EACH ROW EXECUTE FUNCTION "Audit".audit_ledger_append_only();
+
+-- Oracle
+CREATE OR REPLACE TRIGGER "AUDIT_LEDGER_APPEND_ONLY"
+  BEFORE UPDATE OR DELETE ON "AuditLedger"
+BEGIN RAISE_APPLICATION_ERROR(-20001, 'AuditLedger is append-only'); END;
 ```
 
-### PostgreSQL (Append-Only with RLS)
-```sql
-CREATE TABLE audit_ledger_entries (...);
-ALTER TABLE audit_ledger_entries ENABLE ROW LEVEL SECURITY;
-CREATE POLICY audit_immutable ON audit_ledger_entries
-    FOR ALL USING (false) WITH CHECK (true);  -- INSERT only
-REVOKE UPDATE, DELETE ON audit_ledger_entries FROM PUBLIC;
-```
+> **Implementation notes.** The provider is selected by the `DatabaseProvider` template switch. Each
+> provider ships its own EF migration set (SQL Server in `Migrations/`; PostgreSQL and Oracle are moved
+> in from `Migrations.PostgreSql`/`Migrations.Oracle` at generation time), each with the trigger/ledger
+> DDL baked in. On Oracle, schemas are database users, so all tables are mapped into the single
+> connecting schema rather than one user per logical schema.
 
 **Key design choices**:
 - **Append-only enforcement** - INSERT only, no UPDATE/DELETE at database level
@@ -83,7 +96,7 @@ All databases share a fundamental limitation: superusers/sysadmins can bypass an
 
 | Layer | Protection | Threat Mitigated |
 |-------|------------|------------------|
-| Database | Append-only (Ledger/Blockchain/RLS) | Normal users, application bugs, regular DBAs |
+| Database | Append-only (Ledger on SQL Server; trigger on PostgreSQL/Oracle) | Normal users, application bugs, regular DBAs |
 | Application | Hash chain verification | Tampering detection (even by superusers) |
 | Archive | Immutable blob storage (WORM) | Long-term proof, database destruction |
 | Access Control | No superuser access for app accounts | Reduces attack surface |
@@ -98,15 +111,15 @@ The application-layer hash chain ensures **all three databases have equivalent t
 - **Cryptographic integrity** - Application-layer hash chain detects tampering (all databases)
 - **Defense in depth** - Database-level prevention + application-level detection
 - **Supports compliance** - Provides technical controls for HIPAA, SOC 2, PCI-DSS audit requirements (see note below)
-- **Efficient archival** - Partition switching moves old data without row-by-row copy
-- **Multi-database support** - Works with SQL Server, Oracle, and PostgreSQL
+- **Multi-database support** - Generates a runnable, append-only audit ledger for SQL Server,
+  PostgreSQL, and Oracle, each with a provider-appropriate mechanism and its own migration set
 - **Native features** - No external dependencies, works with existing tooling
 
 > **Compliance Note**: This implementation provides *technical controls* that support compliance frameworks. Full compliance requires additional administrative controls (policies, training, incident response), physical controls, risk assessments, and legal agreements (e.g., BAAs for HIPAA). Technical controls alone do not constitute compliance.
 
 ### Negative
 
-- **Minimum version requirements** - SQL Server 2022+, Oracle 21c+, PostgreSQL 14+
+- **Minimum version requirements** - SQL Server 2022+ (ledger); PostgreSQL 14+, Oracle 19c+ (triggers)
 - **Storage growth** - Cannot delete old audit records (must archive)
 - **Slightly slower inserts** - Hash chain computation adds small overhead
 - **Superuser limitation** - All databases can be bypassed by superuser/sysadmin (mitigated by hash chain detection)

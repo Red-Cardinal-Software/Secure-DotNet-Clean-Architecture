@@ -1,3 +1,4 @@
+using Infrastructure.Persistence;
 using Domain.Entities.Security;
 using Infrastructure.Persistence.EntityConfigurations.Base;
 using Microsoft.EntityFrameworkCore;
@@ -72,7 +73,7 @@ internal class MfaMethodConfiguration : EntityTypeConfiguration<MfaMethod>
 
         builder.HasIndex(m => new { m.UserId, m.IsDefault })
             .HasDatabaseName("IX_MfaMethods_UserId_IsDefault")
-            .HasFilter("[IsDefault] = 1"); // Partial index for performance
+            .SqlServerFilter("[IsDefault] = 1"); // Partial index for performance
 
         // Relationships
         builder.HasOne(m => m.User)

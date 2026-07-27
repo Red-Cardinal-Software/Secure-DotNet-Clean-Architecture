@@ -1,3 +1,4 @@
+using Infrastructure.Persistence;
 using Domain.Entities.Security;
 using Infrastructure.Persistence.EntityConfigurations.Base;
 using Microsoft.EntityFrameworkCore;
@@ -43,17 +44,23 @@ internal class AccountLockoutConfiguration : EntityTypeConfiguration<AccountLock
         builder.Property(x => x.LockoutExpiresAt)
             .IsRequired(false);
 
-        builder.Property(x => x.LastFailedAttemptAt)
-            .IsRequired()
-            .HasDefaultValueSql("GETUTCDATE()"); // SQL Server function
-
-        builder.Property(x => x.CreatedAt)
-            .IsRequired()
-            .HasDefaultValueSql("GETUTCDATE()"); // SQL Server function
-
-        builder.Property(x => x.UpdatedAt)
-            .IsRequired()
-            .HasDefaultValueSql("GETUTCDATE()"); // SQL Server function
+        builder.Property(x => x.LastFailedAttemptAt).IsRequired();
+        builder.Property(x => x.CreatedAt).IsRequired();
+        builder.Property(x => x.UpdatedAt).IsRequired();
+        // UTC "now" defaults are provider-specific SQL.
+        //#if (UsePostgreSql)
+        builder.Property(x => x.LastFailedAttemptAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        builder.Property(x => x.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        builder.Property(x => x.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        //#elseif (UseOracle)
+        builder.Property(x => x.LastFailedAttemptAt).HasDefaultValueSql("SYS_EXTRACT_UTC(SYSTIMESTAMP)");
+        builder.Property(x => x.CreatedAt).HasDefaultValueSql("SYS_EXTRACT_UTC(SYSTIMESTAMP)");
+        builder.Property(x => x.UpdatedAt).HasDefaultValueSql("SYS_EXTRACT_UTC(SYSTIMESTAMP)");
+        //#else
+        builder.Property(x => x.LastFailedAttemptAt).HasDefaultValueSql("GETUTCDATE()");
+        builder.Property(x => x.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+        builder.Property(x => x.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+        //#endif
 
         builder.Property(x => x.LockoutReason)
             .HasMaxLength(1000)
@@ -70,17 +77,17 @@ internal class AccountLockoutConfiguration : EntityTypeConfiguration<AccountLock
         // Index for finding active lockouts
         builder.HasIndex(x => new { x.IsLockedOut, x.LockoutExpiresAt })
             .HasDatabaseName("IX_AccountLockouts_IsLockedOut_LockoutExpiresAt")
-            .HasFilter("IsLockedOut = 1");
+            .SqlServerFilter("IsLockedOut = 1");
 
         // Index for cleanup operations (finding expired lockouts)
         builder.HasIndex(x => x.LockoutExpiresAt)
             .HasDatabaseName("IX_AccountLockouts_LockoutExpiresAt")
-            .HasFilter("LockoutExpiresAt IS NOT NULL");
+            .SqlServerFilter("LockoutExpiresAt IS NOT NULL");
 
         // Index for auditing locked accounts by administrator
         builder.HasIndex(x => x.LockedByUserId)
             .HasDatabaseName("IX_AccountLockouts_LockedByUserId")
-            .HasFilter("LockedByUserId IS NOT NULL");
+            .SqlServerFilter("LockedByUserId IS NOT NULL");
 
         // Index for time-based queries
         builder.HasIndex(x => x.LastFailedAttemptAt)
