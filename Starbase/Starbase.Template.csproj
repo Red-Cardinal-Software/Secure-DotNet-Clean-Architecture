@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <PackageType>Template</PackageType>
-    <PackageVersion>1.0.1</PackageVersion>
+    <PackageVersion>1.0.3</PackageVersion>
     <PackageId>Starbase</PackageId>
     <Title>Starbase - Secure .NET API Template</Title>
     <Authors>Red Cardinal Software</Authors>
@@ -12,7 +12,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
 
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <IncludeContentInPack>true</IncludeContentInPack>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <ContentTargetFolders>content</ContentTargetFolders>
@@ -37,8 +37,9 @@
     <Content Include="Application.Tests/**/*" Exclude="**/bin/**;**/obj/**" />
     <Content Include="Domain.Tests/**/*" Exclude="**/bin/**;**/obj/**" />
     <Content Include="WebApi.Integration.Tests/**/*" Exclude="**/bin/**;**/obj/**" />
-    <Content Include="TestUtils/**/*" Exclude="**/bin/**;**/obj/**" />
-    <Content Include="Starbase.sln" />
+    <!-- Central Package Management: generated projects reference packages without a
+         version, so this file must ship with the template or restore will fail. -->
+    <Content Include="Directory.Packages.props" />
     <Content Include="README.md" />
     <Content Include="Dockerfile" />
     <Content Include=".dockerignore" />
@@ -49,6 +50,10 @@
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="RedCardinal.Compliance.Abstractions" />
   </ItemGroup>
 
 </Project>

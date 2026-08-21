@@ -5,6 +5,7 @@ using Serilog.Events;
 //#endif
 //#if (UseAWS)
 using Amazon;
+using Amazon.SecretsManager;
 using Kralizek.Extensions.Configuration;
 using AWS.Logger.SeriLog;
 using AWS.Logger;
@@ -61,10 +62,11 @@ if (!builder.Environment.IsDevelopment())
     if (!string.IsNullOrEmpty(secretName))
     {
         var region = builder.Configuration["AWS:SecretsManager:Region"] ?? "us-east-1";
-        builder.Configuration.AddSecretsManager(region: RegionEndpoint.GetBySystemName(region), configurator: options =>
-        {
-            options.SecretFilter = entry => entry.Name == secretName;
-        });
+        // Kralizek 2.x: fetch the named secret directly instead of listing every secret
+        // and filtering client-side. This needs only secretsmanager:GetSecretValue on the
+        // one secret - no secretsmanager:ListSecrets - which keeps the IAM policy minimal.
+        var secretsManagerClient = new AmazonSecretsManagerClient(RegionEndpoint.GetBySystemName(region));
+        builder.Configuration.AddSecretsManagerKnownSecret(secretsManagerClient, secretName, _ => { });
     }
 }
 //#endif
@@ -100,7 +102,9 @@ if (builder.Environment.IsDevelopment())
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
     {
-        c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+        // Microsoft.OpenApi 2.x (via Swashbuckle 10) flattened Microsoft.OpenApi.Models.*
+        // into Microsoft.OpenApi.*, and replaced OpenApiReference with typed *Reference classes.
+        c.SwaggerDoc("v1", new Microsoft.OpenApi.OpenApiInfo
         {
             Title = "Starbase Template .NET API",
             Version = "v1",
@@ -108,28 +112,23 @@ if (builder.Environment.IsDevelopment())
         });
 
         // Add JWT Bearer Authentication
-        c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.OpenApiSecurityScheme
         {
             Description = "JWT Authorization header using the Bearer scheme. Enter your JWT token in the text input below (without 'Bearer' prefix).",
             Name = "Authorization",
-            In = Microsoft.OpenApi.Models.ParameterLocation.Header,
-            Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+            In = Microsoft.OpenApi.ParameterLocation.Header,
+            Type = Microsoft.OpenApi.SecuritySchemeType.Http,
             Scheme = "bearer",
             BearerFormat = "JWT"
         });
 
-        c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+        // Swashbuckle 10 takes a factory so the requirement can resolve its reference
+        // against the document being generated.
+        c.AddSecurityRequirement(document => new Microsoft.OpenApi.OpenApiSecurityRequirement
         {
             {
-                new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-                {
-                    Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                    {
-                        Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                        Id = "Bearer"
-                    }
-                },
-                Array.Empty<string>()
+                new Microsoft.OpenApi.OpenApiSecuritySchemeReference("Bearer", document, null),
+                new List<string>()
             }
         });
     });

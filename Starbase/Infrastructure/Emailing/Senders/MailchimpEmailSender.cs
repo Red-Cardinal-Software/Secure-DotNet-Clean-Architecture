@@ -123,14 +123,14 @@ public class MailchimpEmailSender(
         // Set reply-to via headers
         if (!string.IsNullOrWhiteSpace(message.ReplyTo))
         {
-            mandrillMessage.Headers ??= new Dictionary<string, object>();
+            mandrillMessage.Headers ??= new Dictionary<string, MandrillHeaderValue>();
             mandrillMessage.Headers["Reply-To"] = message.ReplyTo;
         }
 
         // Add custom headers
         if (message.Headers is { Count: > 0 })
         {
-            mandrillMessage.Headers ??= new Dictionary<string, object>();
+            mandrillMessage.Headers ??= new Dictionary<string, MandrillHeaderValue>();
             foreach (var header in message.Headers)
             {
                 mandrillMessage.Headers[header.Key] = header.Value;

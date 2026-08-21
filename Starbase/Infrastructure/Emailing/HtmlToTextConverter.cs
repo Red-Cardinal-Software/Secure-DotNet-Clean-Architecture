@@ -109,7 +109,7 @@ public static partial class HtmlToTextConverter
             case "a":
                 foreach (var child in node.ChildNodes)
                     ConvertNode(child, sb);
-                var href = node.GetAttributeValue("href", null);
+                var href = node.GetAttributeValue("href", string.Empty);
                 if (!string.IsNullOrEmpty(href) && !href.StartsWith('#'))
                 {
                     sb.Append(" (");

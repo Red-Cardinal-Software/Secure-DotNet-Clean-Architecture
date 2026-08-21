@@ -2,11 +2,14 @@
 # Multi-stage build for optimized production image
 
 # Build stage
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy solution and project files first (for better layer caching)
 COPY Starbase.sln ./
+# Central Package Management: package versions live here, so it must be present
+# before `dotnet restore` runs or every PackageReference resolves with no version.
+COPY Directory.Packages.props ./
 COPY Domain/Domain.csproj Domain/
 COPY Application/Application.csproj Application/
 COPY Infrastructure/Infrastructure.csproj Infrastructure/
@@ -31,7 +34,7 @@ COPY WebApi/ WebApi/
 RUN dotnet publish WebApi/WebApi.csproj -c Release -o /app/publish --no-restore
 
 # Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
 # Create non-root user for security
