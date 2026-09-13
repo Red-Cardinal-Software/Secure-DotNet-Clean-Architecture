@@ -152,23 +152,40 @@ public class SetupTests(SqlServerContainerFixture dbFixture) : IntegrationTestBa
 
         await WithDbContextAsync(async db =>
         {
+            // Schema-qualified identifiers use different quoting per provider.
+            ////#if (UsePostgreSql)
+            //string Table(string schema, string name) => $"\"{schema}\".\"{name}\"";
+            ////#elseif (UseOracle)
+            //string Table(string schema, string name) => $"\"{schema}\".\"{name}\"";
+            ////#else
+            //// Note: [Identity] is bracketed because Identity is a reserved keyword in SQL Server
+            string Table(string schema, string name) => $"[{schema}].[{name}]";
+            ////#endif
+
+            // Build the SQL in a local before execution so EF's raw-SQL analyzer
+            // (EF1003) can see that no user input is interpolated.
+            async Task DeleteAsync(string schema, string table)
+            {
+                var sql = "DELETE FROM " + Table(schema, table);
+                await db.Database.ExecuteSqlRawAsync(sql);
+            }
+
             // Delete from all tables with foreign keys to AppUsers (with schema prefixes)
-            // Note: [Identity] is bracketed because Identity is a reserved keyword in SQL Server
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Security].MfaPushChallenges");
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Security].MfaPushDevices");
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Security].MfaEmailCodes");
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Security].MfaChallenges");
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Security].MfaRecoveryCodes");
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Security].WebAuthnCredentials");
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Security].MfaMethods");
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Identity].RefreshTokens");
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Identity].PasswordResetTokens");
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Security].AccountLockouts");
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Security].LoginAttempts");
+            await DeleteAsync("Security", "MfaPushChallenges");
+            await DeleteAsync("Security", "MfaPushDevices");
+            await DeleteAsync("Security", "MfaEmailCodes");
+            await DeleteAsync("Security", "MfaChallenges");
+            await DeleteAsync("Security", "MfaRecoveryCodes");
+            await DeleteAsync("Security", "WebAuthnCredentials");
+            await DeleteAsync("Security", "MfaMethods");
+            await DeleteAsync("Identity", "RefreshTokens");
+            await DeleteAsync("Identity", "PasswordResetTokens");
+            await DeleteAsync("Security", "AccountLockouts");
+            await DeleteAsync("Security", "LoginAttempts");
             // Clear the join table for user roles
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Identity].AppUserRole");
+            await DeleteAsync("Identity", "AppUserRole");
             // Finally delete users
-            await db.Database.ExecuteSqlRawAsync("DELETE FROM [Identity].AppUsers");
+            await DeleteAsync("Identity", "AppUsers");
         });
     }
 }

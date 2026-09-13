@@ -43,17 +43,47 @@ internal class AccountLockoutConfiguration : EntityTypeConfiguration<AccountLock
         builder.Property(x => x.LockoutExpiresAt)
             .IsRequired(false);
 
+        //#if (UsePostgreSql)
+        builder.Property(x => x.LastFailedAttemptAt)
+            .IsRequired()
+            .HasDefaultValueSql("(now() at time zone 'utc')"); // PostgreSQL function
+        //#elseif (UseOracle)
+        builder.Property(x => x.LastFailedAttemptAt)
+            .IsRequired()
+            .HasDefaultValueSql("SYS_EXTRACT_UTC(SYSTIMESTAMP)"); // Oracle function
+        //#else
         builder.Property(x => x.LastFailedAttemptAt)
             .IsRequired()
             .HasDefaultValueSql("GETUTCDATE()"); // SQL Server function
+        //#endif
 
+        //#if (UsePostgreSql)
+        builder.Property(x => x.CreatedAt)
+            .IsRequired()
+            .HasDefaultValueSql("(now() at time zone 'utc')"); // PostgreSQL function
+        //#elseif (UseOracle)
+        builder.Property(x => x.CreatedAt)
+            .IsRequired()
+            .HasDefaultValueSql("SYS_EXTRACT_UTC(SYSTIMESTAMP)"); // Oracle function
+        //#else
         builder.Property(x => x.CreatedAt)
             .IsRequired()
             .HasDefaultValueSql("GETUTCDATE()"); // SQL Server function
+        //#endif
 
+        //#if (UsePostgreSql)
+        builder.Property(x => x.UpdatedAt)
+            .IsRequired()
+            .HasDefaultValueSql("(now() at time zone 'utc')"); // PostgreSQL function
+        //#elseif (UseOracle)
+        builder.Property(x => x.UpdatedAt)
+            .IsRequired()
+            .HasDefaultValueSql("SYS_EXTRACT_UTC(SYSTIMESTAMP)"); // Oracle function
+        //#else
         builder.Property(x => x.UpdatedAt)
             .IsRequired()
             .HasDefaultValueSql("GETUTCDATE()"); // SQL Server function
+        //#endif
 
         builder.Property(x => x.LockoutReason)
             .HasMaxLength(1000)
@@ -68,19 +98,47 @@ internal class AccountLockoutConfiguration : EntityTypeConfiguration<AccountLock
             .HasDatabaseName("UX_AccountLockouts_UserId");
 
         // Index for finding active lockouts
+        //#if (UsePostgreSql)
         builder.HasIndex(x => new { x.IsLockedOut, x.LockoutExpiresAt })
             .HasDatabaseName("IX_AccountLockouts_IsLockedOut_LockoutExpiresAt")
-            .HasFilter("IsLockedOut = 1");
+            .HasFilter("\"IsLockedOut\" = true");
+        //#elseif (UseOracle)
+        // Oracle does not support filtered indexes; create a regular index.
+        builder.HasIndex(x => new { x.IsLockedOut, x.LockoutExpiresAt })
+            .HasDatabaseName("IX_AccountLockouts_IsLockedOut_LockoutExpiresAt");
+        //#else
+        builder.HasIndex(x => new { x.IsLockedOut, x.LockoutExpiresAt })
+            .HasDatabaseName("IX_AccountLockouts_IsLockedOut_LockoutExpiresAt")
+            .HasFilter("[IsLockedOut] = 1");
+        //#endif
 
         // Index for cleanup operations (finding expired lockouts)
+        //#if (UsePostgreSql)
+        builder.HasIndex(x => x.LockoutExpiresAt)
+            .HasDatabaseName("IX_AccountLockouts_LockoutExpiresAt")
+            .HasFilter("\"LockoutExpiresAt\" IS NOT NULL");
+        //#elseif (UseOracle)
+        builder.HasIndex(x => x.LockoutExpiresAt)
+            .HasDatabaseName("IX_AccountLockouts_LockoutExpiresAt");
+        //#else
         builder.HasIndex(x => x.LockoutExpiresAt)
             .HasDatabaseName("IX_AccountLockouts_LockoutExpiresAt")
             .HasFilter("LockoutExpiresAt IS NOT NULL");
+        //#endif
 
         // Index for auditing locked accounts by administrator
+        //#if (UsePostgreSql)
+        builder.HasIndex(x => x.LockedByUserId)
+            .HasDatabaseName("IX_AccountLockouts_LockedByUserId")
+            .HasFilter("\"LockedByUserId\" IS NOT NULL");
+        //#elseif (UseOracle)
+        builder.HasIndex(x => x.LockedByUserId)
+            .HasDatabaseName("IX_AccountLockouts_LockedByUserId");
+        //#else
         builder.HasIndex(x => x.LockedByUserId)
             .HasDatabaseName("IX_AccountLockouts_LockedByUserId")
             .HasFilter("LockedByUserId IS NOT NULL");
+        //#endif
 
         // Index for time-based queries
         builder.HasIndex(x => x.LastFailedAttemptAt)

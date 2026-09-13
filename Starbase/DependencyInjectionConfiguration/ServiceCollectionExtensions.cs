@@ -211,7 +211,7 @@ public static class ServiceCollectionExtensions
         ////#elseif (UseSmtp)
         //services.AddScoped<IEmailSender, SmtpEmailSender>();
         ////#else
-        // Default: Console sender for development (logs emails to console)
+        //// Default: Console sender for development (logs emails to console)
         services.AddScoped<IEmailSender, ConsoleEmailSender>();
         ////#endif
 

@@ -22,8 +22,16 @@
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
-      <!-- Database provider: Source uses SqlServer only to avoid EF Core multi-provider conflict -->
+      <!-- Database provider: selected when the template is generated. In the template source all
+           provider references are active (XML-comment conditionals are inert to MSBuild) so the
+           source compiles; generation keeps exactly one. -->
+      <!--#if (UseSqlServer) -->
       <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+      <!--#elseif (UsePostgreSql) -->
+      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+      <!--#elseif (UseOracle) -->
+      <PackageReference Include="Oracle.EntityFrameworkCore" />
+      <!--#endif -->
       <PackageReference Include="Microsoft.EntityFrameworkCore.Tools">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

@@ -65,9 +65,19 @@ public class MfaEmailCodeConfiguration : IEntityTypeConfiguration<MfaEmailCode>
         builder.HasIndex(e => new { e.UserId, e.IsUsed, e.ExpiresAt })
             .HasDatabaseName("IX_MfaEmailCodes_User_Status");
 
+        //#if (UsePostgreSql)
+        builder.HasIndex(e => e.ExpiresAt)
+            .HasDatabaseName("IX_MfaEmailCodes_ExpiresAt")
+            .HasFilter("\"IsUsed\" = false"); // Only index non-used codes
+        //#elseif (UseOracle)
+        // Oracle does not support filtered indexes; create a regular index.
+        builder.HasIndex(e => e.ExpiresAt)
+            .HasDatabaseName("IX_MfaEmailCodes_ExpiresAt");
+        //#else
         builder.HasIndex(e => e.ExpiresAt)
             .HasDatabaseName("IX_MfaEmailCodes_ExpiresAt")
             .HasFilter("[IsUsed] = 0"); // Only index non-used codes
+        //#endif
 
         // Relationships
         builder.HasOne(e => e.Challenge)
