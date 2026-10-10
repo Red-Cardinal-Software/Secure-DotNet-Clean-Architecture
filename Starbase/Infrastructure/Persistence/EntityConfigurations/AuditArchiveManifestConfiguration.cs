@@ -18,8 +18,14 @@ internal class AuditArchiveManifestConfiguration : EntityTypeConfiguration<Audit
         builder.HasKey(e => e.Id);
 
         // Partition identification
+        ////#if (UsePostgreSql)
+        //builder.Property(e => e.PartitionBoundary)
+        //    .IsRequired()
+        //    .HasColumnType("timestamp without time zone");
+        ////#else
         builder.Property(e => e.PartitionBoundary)
             .IsRequired();
+        ////#endif
         builder.HasIndex(e => e.PartitionBoundary)
             .IsUnique();
 
@@ -43,9 +49,19 @@ internal class AuditArchiveManifestConfiguration : EntityTypeConfiguration<Audit
             .HasMaxLength(64);
 
         // SQL Server Ledger digest (JSON structure)
+        //#if (UsePostgreSql)
+        builder.Property(e => e.LedgerDigest)
+            .IsRequired()
+            .HasColumnType("text");
+        //#elseif (UseOracle)
+        builder.Property(e => e.LedgerDigest)
+            .IsRequired()
+            .HasColumnType("CLOB");
+        //#else
         builder.Property(e => e.LedgerDigest)
             .IsRequired()
             .HasColumnType("nvarchar(max)");
+        //#endif
 
         // Archive location and integrity
         builder.Property(e => e.ArchiveUri)

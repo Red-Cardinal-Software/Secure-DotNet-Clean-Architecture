@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+#if (UseSqlServer)
   # SQL Server database
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -21,6 +22,49 @@ services:
       start_period: 30s
     networks:
       - starbase-network
+#elseif (UsePostgreSql)
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: starbase-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=YourStrong!Passw0rd
+      - POSTGRES_DB=Starbase
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - starbase-network
+#else
+  # Oracle database
+  oracle:
+    image: gvenzl/oracle-free:23-slim-faststart
+    container_name: starbase-oracle
+    environment:
+      - ORACLE_PASSWORD=YourStrong!Passw0rd
+      - APP_USER=starbase
+      - APP_USER_PASSWORD=YourStrong!Passw0rd
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    networks:
+      - starbase-network
+#endif
 
   # Redis cache (optional)
   redis:
@@ -48,21 +92,41 @@ services:
       - "5000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+#if (UseSqlServer)
       - ConnectionStrings__SqlConnection=Server=sqlserver;Database=Starbase;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True
+#elseif (UsePostgreSql)
+      - ConnectionStrings__SqlConnection=Host=postgres;Database=Starbase;Username=postgres;Password=YourStrong!Passw0rd
+#else
+      - ConnectionStrings__SqlConnection=User Id=starbase;Password=YourStrong!Passw0rd;Data Source=oracle:1521/FREEPDB1
+#endif
       - ConnectionStrings__Redis=redis:6379
       - AppSettings__JwtSigningKey=YourSuperSecretKeyThatIsAtLeast32CharactersLong!
       - AppSettings__JwtIssuer=https://localhost:5000
       - AppSettings__JwtAudience=starbase-api-users-docker
     depends_on:
+#if (UseSqlServer)
       sqlserver:
         condition: service_healthy
+#elseif (UsePostgreSql)
+      postgres:
+        condition: service_healthy
+#else
+      oracle:
+        condition: service_healthy
+#endif
       redis:
         condition: service_healthy
     networks:
       - starbase-network
 
 volumes:
+#if (UseSqlServer)
   sqlserver-data:
+#elseif (UsePostgreSql)
+  postgres-data:
+#else
+  oracle-data:
+#endif
   redis-data:
 
 networks:

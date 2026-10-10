@@ -1,11 +1,12 @@
 version: '3.8'
 
-# Use this file to run just the dependencies (SQL Server + Redis)
+# Use this file to run just the database dependency (plus Redis)
 # Useful when developing locally with `dotnet run`
 #
 # Usage: docker-compose -f docker-compose.deps.yml up -d
 
 services:
+#if (UseSqlServer)
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: starbase-sqlserver
@@ -23,6 +24,43 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+#elseif (UsePostgreSql)
+  postgres:
+    image: postgres:16-alpine
+    container_name: starbase-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=YourStrong!Passw0rd
+      - POSTGRES_DB=Starbase
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+#else
+  oracle:
+    image: gvenzl/oracle-free:23-slim-faststart
+    container_name: starbase-oracle
+    environment:
+      - ORACLE_PASSWORD=YourStrong!Passw0rd
+      - APP_USER=starbase
+      - APP_USER_PASSWORD=YourStrong!Passw0rd
+    ports:
+      - "1521:1521"
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+#endif
 
   redis:
     image: redis:7-alpine
@@ -38,5 +76,11 @@ services:
       retries: 5
 
 volumes:
+#if (UseSqlServer)
   sqlserver-data:
+#elseif (UsePostgreSql)
+  postgres-data:
+#else
+  oracle-data:
+#endif
   redis-data:

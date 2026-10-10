@@ -44,11 +44,25 @@ public class WebAuthnCredentialConfiguration : IEntityTypeConfiguration<WebAuthn
             .HasConversion<int>();
 
         // Store transport array as JSON
+        //#if (UsePostgreSql)
+        builder.Property(w => w.Transports)
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<AuthenticatorTransport[]>(v, (JsonSerializerOptions?)null) ?? Array.Empty<AuthenticatorTransport>())
+            .HasColumnType("text");
+        //#elseif (UseOracle)
+        builder.Property(w => w.Transports)
+            .HasConversion(
+                v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                v => JsonSerializer.Deserialize<AuthenticatorTransport[]>(v, (JsonSerializerOptions?)null) ?? Array.Empty<AuthenticatorTransport>())
+            .HasColumnType("CLOB");
+        //#else
         builder.Property(w => w.Transports)
             .HasConversion(
                 v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
                 v => JsonSerializer.Deserialize<AuthenticatorTransport[]>(v, (JsonSerializerOptions?)null) ?? Array.Empty<AuthenticatorTransport>())
             .HasColumnType("nvarchar(max)");
+        //#endif
 
         builder.Property(w => w.SupportsUserVerification)
             .IsRequired()
@@ -92,9 +106,19 @@ public class WebAuthnCredentialConfiguration : IEntityTypeConfiguration<WebAuthn
         builder.HasIndex(w => new { w.UserId, w.IsActive })
             .HasDatabaseName("IX_WebAuthnCredentials_User_Active");
 
+        //#if (UsePostgreSql)
+        builder.HasIndex(w => w.LastUsedAt)
+            .HasDatabaseName("IX_WebAuthnCredentials_LastUsed")
+            .HasFilter("\"LastUsedAt\" IS NOT NULL");
+        //#elseif (UseOracle)
+        // Oracle does not support filtered indexes; create a regular index.
+        builder.HasIndex(w => w.LastUsedAt)
+            .HasDatabaseName("IX_WebAuthnCredentials_LastUsed");
+        //#else
         builder.HasIndex(w => w.LastUsedAt)
             .HasDatabaseName("IX_WebAuthnCredentials_LastUsed")
             .HasFilter("[LastUsedAt] IS NOT NULL");
+        //#endif
 
         // Relationships
         builder.HasOne(w => w.MfaMethod)

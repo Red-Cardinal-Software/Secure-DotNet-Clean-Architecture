@@ -480,40 +480,6 @@
     }
   ],
   "SpecialCustomOperations": {
-    "**/*.json": {
-      "operations": [
-        {
-          "type": "conditional",
-          "configuration": {
-            "if": [
-              "//#if"
-            ],
-            "else": [
-              "//#else"
-            ],
-            "elseif": [
-              "//#elseif"
-            ],
-            "endif": [
-              "//#endif"
-            ],
-            "actionableIf": [
-              "////#if"
-            ],
-            "actionableElse": [
-              "////#else"
-            ],
-            "actionableElseif": [
-              "////#elseif"
-            ],
-            "actions": [
-              "cStyleUncomment",
-              "cStyleReduceComment"
-            ]
-          }
-        }
-      ]
-    },
     "**/*.csproj": {
       "operations": [
         {
@@ -542,31 +508,8 @@
         {
           "type": "conditional",
           "configuration": {
-            "if": [
-              "//#if"
-            ],
-            "else": [
-              "//#else"
-            ],
-            "elseif": [
-              "//#elseif"
-            ],
-            "endif": [
-              "//#endif"
-            ],
-            "actionableIf": [
-              "////#if"
-            ],
-            "actionableElse": [
-              "////#else"
-            ],
-            "actionableElseif": [
-              "////#elseif"
-            ],
-            "actions": [
-              "cStyleUncomment",
-              "cStyleReduceComment"
-            ],
+            "style": "line",
+            "token": "//",
             "trim": true,
             "wholeLine": true
           }

@@ -382,7 +382,7 @@ public class AuthService(
         var passwordResetExpirationTimeHours = appOptions.Value.PasswordResetExpirationTimeHours;
 
         var newPasswordResetToken =
-            new PasswordResetToken(user, DateTime.Now.AddHours(passwordResetExpirationTimeHours), ipAddress);
+            new PasswordResetToken(user, DateTime.UtcNow.AddHours(passwordResetExpirationTimeHours), ipAddress);
 
         var tokenEntity = await passwordResetTokenRepository.CreateResetPasswordTokenAsync(newPasswordResetToken);
 

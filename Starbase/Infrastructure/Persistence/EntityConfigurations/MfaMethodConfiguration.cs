@@ -70,9 +70,19 @@ internal class MfaMethodConfiguration : EntityTypeConfiguration<MfaMethod>
         builder.HasIndex(m => new { m.UserId, m.IsEnabled })
             .HasDatabaseName("IX_MfaMethods_UserId_IsEnabled");
 
+        //#if (UsePostgreSql)
+        builder.HasIndex(m => new { m.UserId, m.IsDefault })
+            .HasDatabaseName("IX_MfaMethods_UserId_IsDefault")
+            .HasFilter("\"IsDefault\" = true"); // Partial index for performance
+        //#elseif (UseOracle)
+        // Oracle does not support filtered indexes; create a regular index.
+        builder.HasIndex(m => new { m.UserId, m.IsDefault })
+            .HasDatabaseName("IX_MfaMethods_UserId_IsDefault");
+        //#else
         builder.HasIndex(m => new { m.UserId, m.IsDefault })
             .HasDatabaseName("IX_MfaMethods_UserId_IsDefault")
             .HasFilter("[IsDefault] = 1"); // Partial index for performance
+        //#endif
 
         // Relationships
         builder.HasOne(m => m.User)

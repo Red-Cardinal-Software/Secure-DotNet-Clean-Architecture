@@ -306,7 +306,13 @@ public class SigningKeyRotationTests : IAsyncLifetime
 
                 services.AddDbContext<AppDbContext>((sp, options) =>
                 {
+                    ////#if (UsePostgreSql)
+                    //options.UseNpgsql(_dbFixture.ConnectionString);
+                    ////#elseif (UseOracle)
+                    //options.UseOracle(_dbFixture.ConnectionString);
+                    ////#else
                     options.UseSqlServer(_dbFixture.ConnectionString);
+                    ////#endif
                 });
 
                 // Replace the signing key provider with our test implementation

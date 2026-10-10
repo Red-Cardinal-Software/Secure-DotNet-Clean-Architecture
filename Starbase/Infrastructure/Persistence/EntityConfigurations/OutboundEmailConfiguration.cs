@@ -62,23 +62,51 @@ internal class OutboundEmailConfiguration : EntityTypeConfiguration<OutboundEmai
             .HasDefaultValue(10);
 
         // Index for queue processing: pending emails ready for delivery
+        //#if (UsePostgreSql)
+        builder.HasIndex(e => new { e.Status, e.NextAttemptAt, e.Priority })
+            .HasDatabaseName("IX_OutboundEmails_Queue")
+            .HasFilter("\"Status\" = 0"); // Pending only
+        //#elseif (UseOracle)
+        // Oracle does not support filtered indexes; create a regular index.
+        builder.HasIndex(e => new { e.Status, e.NextAttemptAt, e.Priority })
+            .HasDatabaseName("IX_OutboundEmails_Queue");
+        //#else
         builder.HasIndex(e => new { e.Status, e.NextAttemptAt, e.Priority })
             .HasDatabaseName("IX_OutboundEmails_Queue")
             .HasFilter("[Status] = 0"); // Pending only
+        //#endif
 
         // Index for finding emails by status
         builder.HasIndex(e => e.Status)
             .HasDatabaseName("IX_OutboundEmails_Status");
 
         // Index for correlation ID lookups
+        //#if (UsePostgreSql)
+        builder.HasIndex(e => e.CorrelationId)
+            .HasDatabaseName("IX_OutboundEmails_CorrelationId")
+            .HasFilter("\"CorrelationId\" IS NOT NULL");
+        //#elseif (UseOracle)
+        builder.HasIndex(e => e.CorrelationId)
+            .HasDatabaseName("IX_OutboundEmails_CorrelationId");
+        //#else
         builder.HasIndex(e => e.CorrelationId)
             .HasDatabaseName("IX_OutboundEmails_CorrelationId")
             .HasFilter("[CorrelationId] IS NOT NULL");
+        //#endif
 
         // Index for organization-specific queries
+        //#if (UsePostgreSql)
+        builder.HasIndex(e => e.OrganizationId)
+            .HasDatabaseName("IX_OutboundEmails_OrganizationId")
+            .HasFilter("\"OrganizationId\" IS NOT NULL");
+        //#elseif (UseOracle)
+        builder.HasIndex(e => e.OrganizationId)
+            .HasDatabaseName("IX_OutboundEmails_OrganizationId");
+        //#else
         builder.HasIndex(e => e.OrganizationId)
             .HasDatabaseName("IX_OutboundEmails_OrganizationId")
             .HasFilter("[OrganizationId] IS NOT NULL");
+        //#endif
 
         // Index for cleanup of old sent/failed emails
         builder.HasIndex(e => new { e.Status, e.CreatedAt })
