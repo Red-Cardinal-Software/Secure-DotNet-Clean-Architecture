@@ -22,8 +22,17 @@
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
-      <!-- Database provider: Source uses SqlServer only to avoid EF Core multi-provider conflict -->
+      <!-- Database provider package, selected by the DatabaseProvider template switch. Delete-style
+           (real content) like the cloud package blocks: the template keeps only the chosen branch.
+           Source references all three but compiles only the SqlServer DatabaseProviderSetup.cs, so
+           exactly one provider is ever used at runtime. -->
+      <!--#if (UsePostgreSql) -->
+      <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+      <!--#elseif (UseOracle) -->
+      <PackageReference Include="Oracle.EntityFrameworkCore" />
+      <!--#else -->
       <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+      <!--#endif -->
       <PackageReference Include="Microsoft.EntityFrameworkCore.Tools">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

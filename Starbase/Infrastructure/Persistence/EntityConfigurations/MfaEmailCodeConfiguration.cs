@@ -1,3 +1,4 @@
+using Infrastructure.Persistence;
 using Domain.Entities.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -67,7 +68,7 @@ public class MfaEmailCodeConfiguration : IEntityTypeConfiguration<MfaEmailCode>
 
         builder.HasIndex(e => e.ExpiresAt)
             .HasDatabaseName("IX_MfaEmailCodes_ExpiresAt")
-            .HasFilter("[IsUsed] = 0"); // Only index non-used codes
+            .SqlServerFilter("[IsUsed] = 0"); // Only index non-used codes
 
         // Relationships
         builder.HasOne(e => e.Challenge)

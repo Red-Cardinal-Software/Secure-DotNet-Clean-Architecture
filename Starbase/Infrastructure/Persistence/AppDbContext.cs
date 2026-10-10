@@ -48,6 +48,31 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IConfiguration
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(GetType().Assembly);
+
+        // Oracle: schemas are database users, so the per-schema layout used by the other providers
+        // (Audit/Security/Identity/...) would require a pre-created user per schema. Collapse every
+        // table into the single connecting schema instead. This is a runtime provider check (a
+        // string compare, so it needs no Oracle-specific package reference) and is a no-op on the
+        // other providers, which keep their schemas.
+        if (Database.ProviderName == "Oracle.EntityFrameworkCore")
+        {
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                entityType.SetSchema(null);
+
+                // Oracle maps long/unbounded strings to NCLOB, which cannot be indexed
+                // (ORA-02327). Drop any index whose key includes such a column.
+                foreach (var index in entityType.GetIndexes().ToList())
+                {
+                    var indexesLob = index.Properties.Any(p =>
+                        p.ClrType == typeof(string) && p.GetMaxLength() is null or > 2000);
+                    if (indexesLob)
+                    {
+                        entityType.RemoveIndex(index);
+                    }
+                }
+            }
+        }
     }
 
     protected override void OnConfiguring(DbContextOptionsBuilder options)
@@ -59,28 +84,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, IConfiguration
         {
             var connectionString = configuration.GetConnectionString("SqlConnection");
 
-            ////#if (UsePostgreSql)
-            //options.UseNpgsql(connectionString, npgsqlOptions =>
-            //{
-            //    npgsqlOptions.EnableRetryOnFailure(
-            //        maxRetryCount: 3,
-            //        maxRetryDelay: TimeSpan.FromSeconds(5),
-            //        errorCodesToAdd: null);
-            //});
-            ////#elseif (UseOracle)
-            //options.UseOracle(connectionString, oracleOptions =>
-            //{
-            //    oracleOptions.CommandTimeout(30);
-            //});
-            ////#else
-            options.UseSqlServer(connectionString, sqlOptions =>
-            {
-                sqlOptions.EnableRetryOnFailure(
-                    maxRetryCount: 3,
-                    maxRetryDelay: TimeSpan.FromSeconds(5),
-                    errorNumbersToAdd: null);
-            });
-            ////#endif
+            DatabaseProviderSetup.Configure(options, connectionString);
         }
 
         options.UseSeeding((context, _) =>

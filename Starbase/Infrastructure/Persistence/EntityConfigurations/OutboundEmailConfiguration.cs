@@ -1,3 +1,4 @@
+using Infrastructure.Persistence;
 using Domain.Entities.Email;
 using Infrastructure.Persistence.EntityConfigurations.Base;
 using Microsoft.EntityFrameworkCore;
@@ -64,7 +65,7 @@ internal class OutboundEmailConfiguration : EntityTypeConfiguration<OutboundEmai
         // Index for queue processing: pending emails ready for delivery
         builder.HasIndex(e => new { e.Status, e.NextAttemptAt, e.Priority })
             .HasDatabaseName("IX_OutboundEmails_Queue")
-            .HasFilter("[Status] = 0"); // Pending only
+            .SqlServerFilter("[Status] = 0"); // Pending only
 
         // Index for finding emails by status
         builder.HasIndex(e => e.Status)
@@ -73,12 +74,12 @@ internal class OutboundEmailConfiguration : EntityTypeConfiguration<OutboundEmai
         // Index for correlation ID lookups
         builder.HasIndex(e => e.CorrelationId)
             .HasDatabaseName("IX_OutboundEmails_CorrelationId")
-            .HasFilter("[CorrelationId] IS NOT NULL");
+            .SqlServerFilter("[CorrelationId] IS NOT NULL");
 
         // Index for organization-specific queries
         builder.HasIndex(e => e.OrganizationId)
             .HasDatabaseName("IX_OutboundEmails_OrganizationId")
-            .HasFilter("[OrganizationId] IS NOT NULL");
+            .SqlServerFilter("[OrganizationId] IS NOT NULL");
 
         // Index for cleanup of old sent/failed emails
         builder.HasIndex(e => new { e.Status, e.CreatedAt })

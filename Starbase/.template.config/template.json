@@ -418,6 +418,51 @@
           ]
         },
         {
+          "condition": "(UseSqlServer)",
+          "exclude": [
+            "**/Infrastructure/Persistence/DatabaseProviderSetup.PostgreSql.cs.pp",
+            "**/Infrastructure/Persistence/DatabaseProviderSetup.Oracle.cs.pp",
+            "**/Infrastructure/Persistence/IndexBuilderExtensions.PostgreSql.cs.pp",
+            "**/Infrastructure/Persistence/IndexBuilderExtensions.Oracle.cs.pp",
+            "**/Infrastructure/Migrations.PostgreSql/**",
+            "**/Infrastructure/Migrations.Oracle/**"
+          ]
+        },
+        {
+          "condition": "(UsePostgreSql)",
+          "exclude": [
+            "**/Infrastructure/Persistence/DatabaseProviderSetup.cs",
+            "**/Infrastructure/Persistence/DatabaseProviderSetup.Oracle.cs.pp",
+            "**/Infrastructure/Persistence/IndexBuilderExtensions.cs",
+            "**/Infrastructure/Persistence/IndexBuilderExtensions.Oracle.cs.pp",
+            "**/Infrastructure/Migrations.Oracle/**"
+          ],
+          "rename": {
+            "Infrastructure/Persistence/DatabaseProviderSetup.PostgreSql.cs.pp": "Infrastructure/Persistence/DatabaseProviderSetup.cs",
+            "Infrastructure/Persistence/IndexBuilderExtensions.PostgreSql.cs.pp": "Infrastructure/Persistence/IndexBuilderExtensions.cs",
+            "Infrastructure/Migrations.PostgreSql/20260727004922_InitialCreate.cs.pp": "Infrastructure/Migrations/20260727004922_InitialCreate.cs",
+            "Infrastructure/Migrations.PostgreSql/20260727004922_InitialCreate.Designer.cs.pp": "Infrastructure/Migrations/20260727004922_InitialCreate.Designer.cs",
+            "Infrastructure/Migrations.PostgreSql/AppDbContextModelSnapshot.cs.pp": "Infrastructure/Migrations/AppDbContextModelSnapshot.cs"
+          }
+        },
+        {
+          "condition": "(UseOracle)",
+          "exclude": [
+            "**/Infrastructure/Persistence/DatabaseProviderSetup.cs",
+            "**/Infrastructure/Persistence/DatabaseProviderSetup.PostgreSql.cs.pp",
+            "**/Infrastructure/Persistence/IndexBuilderExtensions.cs",
+            "**/Infrastructure/Persistence/IndexBuilderExtensions.PostgreSql.cs.pp",
+            "**/Infrastructure/Migrations.PostgreSql/**"
+          ],
+          "rename": {
+            "Infrastructure/Persistence/DatabaseProviderSetup.Oracle.cs.pp": "Infrastructure/Persistence/DatabaseProviderSetup.cs",
+            "Infrastructure/Persistence/IndexBuilderExtensions.Oracle.cs.pp": "Infrastructure/Persistence/IndexBuilderExtensions.cs",
+            "Infrastructure/Migrations.Oracle/20260727014130_InitialCreate.cs.pp": "Infrastructure/Migrations/20260727014130_InitialCreate.cs",
+            "Infrastructure/Migrations.Oracle/20260727014130_InitialCreate.Designer.cs.pp": "Infrastructure/Migrations/20260727014130_InitialCreate.Designer.cs",
+            "Infrastructure/Migrations.Oracle/AppDbContextModelSnapshot.cs.pp": "Infrastructure/Migrations/AppDbContextModelSnapshot.cs"
+          }
+        },
+        {
           "condition": "(!UseSendGrid)",
           "exclude": [
             "**/Infrastructure/Emailing/Senders/SendGridEmailSender.cs"

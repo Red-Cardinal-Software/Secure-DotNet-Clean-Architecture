@@ -1,3 +1,4 @@
+using Infrastructure.Persistence;
 using Domain.Entities.Security;
 using Infrastructure.Persistence.EntityConfigurations.Base;
 using Microsoft.EntityFrameworkCore;
@@ -51,8 +52,15 @@ internal class LoginAttemptConfiguration : EntityTypeConfiguration<LoginAttempt>
             .IsRequired(false);
 
         builder.Property(x => x.AttemptedAt)
-            .IsRequired()
-            .HasDefaultValueSql("GETUTCDATE()"); // SQL Server function
+            .IsRequired();
+        // UTC "now" default is provider-specific SQL.
+        //#if (UsePostgreSql)
+        builder.Property(x => x.AttemptedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        //#elseif (UseOracle)
+        builder.Property(x => x.AttemptedAt).HasDefaultValueSql("SYS_EXTRACT_UTC(SYSTIMESTAMP)");
+        //#else
+        builder.Property(x => x.AttemptedAt).HasDefaultValueSql("GETUTCDATE()");
+        //#endif
 
         builder.Property(x => x.Metadata)
             .HasMaxLength(4000) // Large enough for JSON metadata
@@ -70,12 +78,12 @@ internal class LoginAttemptConfiguration : EntityTypeConfiguration<LoginAttempt>
         // Composite index for failed attempts by user within timeframe
         builder.HasIndex(x => new { x.UserId, x.IsSuccessful, x.AttemptedAt })
             .HasDatabaseName("IX_LoginAttempts_UserId_IsSuccessful_AttemptedAt")
-            .HasFilter("IsSuccessful = 0"); // Only index failed attempts for efficiency
+            .SqlServerFilter("IsSuccessful = 0"); // Only index failed attempts for efficiency
 
         // Index on IP address for security monitoring
         builder.HasIndex(x => x.IpAddress)
             .HasDatabaseName("IX_LoginAttempts_IpAddress")
-            .HasFilter("IpAddress IS NOT NULL");
+            .SqlServerFilter("IpAddress IS NOT NULL");
 
         // Index on attempted username for auditing and analysis
         builder.HasIndex(x => x.AttemptedUsername)
@@ -84,7 +92,7 @@ internal class LoginAttemptConfiguration : EntityTypeConfiguration<LoginAttempt>
         // Composite index for IP-based failed attempt tracking
         builder.HasIndex(x => new { x.IpAddress, x.IsSuccessful, x.AttemptedAt })
             .HasDatabaseName("IX_LoginAttempts_IpAddress_IsSuccessful_AttemptedAt")
-            .HasFilter("IpAddress IS NOT NULL AND IsSuccessful = 0");
+            .SqlServerFilter("IpAddress IS NOT NULL AND IsSuccessful = 0");
 
         // Foreign key relationship (optional - depends on your domain design)
         // Uncomment if you want to enforce referential integrity

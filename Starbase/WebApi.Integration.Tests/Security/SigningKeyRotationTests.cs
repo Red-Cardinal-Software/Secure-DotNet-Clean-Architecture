@@ -306,7 +306,7 @@ public class SigningKeyRotationTests : IAsyncLifetime
 
                 services.AddDbContext<AppDbContext>((sp, options) =>
                 {
-                    options.UseSqlServer(_dbFixture.ConnectionString);
+                    DatabaseProviderSetup.Configure(options, _dbFixture.ConnectionString);
                 });
 
                 // Replace the signing key provider with our test implementation

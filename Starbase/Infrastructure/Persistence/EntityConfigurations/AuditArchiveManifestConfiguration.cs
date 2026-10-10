@@ -42,10 +42,16 @@ internal class AuditArchiveManifestConfiguration : EntityTypeConfiguration<Audit
             .IsRequired()
             .HasMaxLength(64);
 
-        // SQL Server Ledger digest (JSON structure)
+        // Ledger digest (JSON structure). Column type is provider-specific.
         builder.Property(e => e.LedgerDigest)
-            .IsRequired()
-            .HasColumnType("nvarchar(max)");
+            .IsRequired();
+        //#if (UsePostgreSql)
+        builder.Property(e => e.LedgerDigest).HasColumnType("text");
+        //#elseif (UseOracle)
+        builder.Property(e => e.LedgerDigest).HasColumnType("CLOB");
+        //#else
+        builder.Property(e => e.LedgerDigest).HasColumnType("nvarchar(max)");
+        //#endif
 
         // Archive location and integrity
         builder.Property(e => e.ArchiveUri)

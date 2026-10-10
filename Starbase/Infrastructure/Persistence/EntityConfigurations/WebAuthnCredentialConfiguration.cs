@@ -1,3 +1,4 @@
+using Infrastructure.Persistence;
 using Domain.Entities.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -47,8 +48,15 @@ public class WebAuthnCredentialConfiguration : IEntityTypeConfiguration<WebAuthn
         builder.Property(w => w.Transports)
             .HasConversion(
                 v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
-                v => JsonSerializer.Deserialize<AuthenticatorTransport[]>(v, (JsonSerializerOptions?)null) ?? Array.Empty<AuthenticatorTransport>())
-            .HasColumnType("nvarchar(max)");
+                v => JsonSerializer.Deserialize<AuthenticatorTransport[]>(v, (JsonSerializerOptions?)null) ?? Array.Empty<AuthenticatorTransport>());
+        // Column type is provider-specific.
+        //#if (UsePostgreSql)
+        builder.Property(w => w.Transports).HasColumnType("text");
+        //#elseif (UseOracle)
+        builder.Property(w => w.Transports).HasColumnType("CLOB");
+        //#else
+        builder.Property(w => w.Transports).HasColumnType("nvarchar(max)");
+        //#endif
 
         builder.Property(w => w.SupportsUserVerification)
             .IsRequired()
@@ -94,7 +102,7 @@ public class WebAuthnCredentialConfiguration : IEntityTypeConfiguration<WebAuthn
 
         builder.HasIndex(w => w.LastUsedAt)
             .HasDatabaseName("IX_WebAuthnCredentials_LastUsed")
-            .HasFilter("[LastUsedAt] IS NOT NULL");
+            .SqlServerFilter("[LastUsedAt] IS NOT NULL");
 
         // Relationships
         builder.HasOne(w => w.MfaMethod)

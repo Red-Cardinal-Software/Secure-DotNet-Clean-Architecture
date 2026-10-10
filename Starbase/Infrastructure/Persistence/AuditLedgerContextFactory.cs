@@ -39,13 +39,9 @@ public sealed class AuditLedgerContextFactory(IConfiguration configuration)
 
         var builder = new DbContextOptionsBuilder<AppDbContext>();
 
-        //#if (UsePostgreSql)
-        //builder.UseNpgsql(connectionString);
-        //#elseif (UseOracle)
-        //builder.UseOracle(connectionString);
-        //#else
-        builder.UseSqlServer(connectionString);
-        //#endif
+        // No retrying execution strategy: the append path opens explicit transactions (and does its
+        // own conflict retry), which a retrying strategy would reject.
+        DatabaseProviderSetup.Configure(builder, connectionString, enableRetry: false);
 
         return new AppDbContext(builder.Options, configuration);
     }
