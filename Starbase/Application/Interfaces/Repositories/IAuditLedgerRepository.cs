@@ -9,22 +9,32 @@ namespace Application.Interfaces.Repositories;
 public interface IAuditLedgerRepository
 {
     /// <summary>
-    /// Gets the next sequence number for the ledger.
+    /// Atomically appends a batch of entries to the tail of the ledger.
     /// </summary>
-    /// <returns>The next sequence number.</returns>
-    Task<long> GetNextSequenceNumberAsync();
-
-    /// <summary>
-    /// Gets the hash of the last entry for chain continuity.
-    /// </summary>
-    /// <returns>The hash of the last entry, or genesis hash if empty.</returns>
-    Task<string> GetLastHashAsync();
-
-    /// <summary>
-    /// Appends entries to the ledger.
-    /// </summary>
-    /// <param name="entries">The entries to append.</param>
-    Task AppendAsync(IEnumerable<AuditLedgerEntry> entries);
+    /// <remarks>
+    /// <para>
+    /// Reading the tail (sequence number + hash) and inserting the new entries happens inside a
+    /// single serializable transaction on a dedicated connection, so the read-then-write cannot
+    /// interleave with a concurrent append - including one from another process or replica. This
+    /// replaces the previous <c>GetNextSequenceNumberAsync</c> / <c>GetLastHashAsync</c> /
+    /// <c>AppendAsync</c> trio, which was a non-atomic read-modify-write guarded only by an
+    /// in-process lock and therefore forked the hash chain when scaled horizontally.
+    /// </para>
+    /// <para>
+    /// The transaction commits only ledger rows; it never flushes the caller's unit of work.
+    /// </para>
+    /// </remarks>
+    /// <param name="buildEntries">
+    /// Builds the entries to append, given the sequence number the first entry must take and the
+    /// hash of the current tail (or the genesis hash if the ledger is empty). This runs inside the
+    /// transaction and may be invoked more than once if the append is retried after a conflict, so
+    /// it must be free of side effects.
+    /// </param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The entries as appended, in sequence order.</returns>
+    Task<List<AuditLedgerEntry>> AppendChainedAsync(
+        Func<long, string, List<AuditLedgerEntry>> buildEntries,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Queries entries with filtering.

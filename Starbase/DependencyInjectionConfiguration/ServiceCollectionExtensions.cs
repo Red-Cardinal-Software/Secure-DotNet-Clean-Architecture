@@ -442,6 +442,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped(typeof(ICrudOperator<>), typeof(CrudOperator<>));
 
+        // Builds unintercepted contexts for audit ledger appends. Kept separate from the
+        // registration above on purpose: the ledger must not commit the caller's unit of work,
+        // and must not run the audit interceptor (which would re-enter the append path).
+        services.AddSingleton<AuditLedgerContextFactory>();
+
         return services;
     }
 

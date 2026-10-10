@@ -68,6 +68,17 @@ public abstract class IntegrationTestBase(SqlServerContainerFixture dbFixture) :
     }
 
     /// <summary>
+    /// Executes an action with a single scope, so several services can be resolved together and
+    /// share one <see cref="AppDbContext"/>. Needed when a test depends on services interacting
+    /// through the same unit of work.
+    /// </summary>
+    protected async Task WithScopeAsync(Func<IServiceProvider, Task> action)
+    {
+        using var scope = CreateScope();
+        await action(scope.ServiceProvider);
+    }
+
+    /// <summary>
     /// Executes an action with a scoped service.
     /// </summary>
     protected async Task WithServiceAsync<TService>(Func<TService, Task> action) where TService : notnull
